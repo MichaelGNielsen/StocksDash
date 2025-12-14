@@ -1,0 +1,100 @@
+Ticker,Name,Score,ScoreText
+4X0.DE,Steyr Motors AG,4,Køb
+ACHR,Archer Aviation Inc.,4,Køb
+BA,The Boeing Company,4,Køb
+CACI,CACI International Inc,4,Køb
+CARL-B.CO,Carlsberg A/S,4,Køb
+CDNS,"Cadence Design Systems, Inc.",4,Køb
+CEG,Constellation Energy Corporation,4,Køb
+CHWY,"Chewy, Inc.",4,Køb
+DANSKE.CO,Danske Bank A/S,4,Køb
+DSV.CO,DSV A/S,4,Køb
+GD,General Dynamics Corporation,4,Køb
+GE,GE Aerospace,4,Køb
+HIMS,"Hims & Hers Health, Inc.",4,Køb
+KO,The Coca-Cola Company,4,Køb
+LMT,Lockheed Martin Corporation,4,Køb
+MAERSK-B.CO,A.P. Møller - Mærsk A/S,4,Køb
+MELI,"MercadoLibre, Inc.",4,Køb
+MSFT,Microsoft Corp.,4,Køb
+MSTR,Strategy Incorporated,4,Køb
+NFLX,"Netflix, Inc.",4,Køb
+PLTR,Palantir Technologies Inc.,4,Køb
+PM,Philip Morris International Inc.,4,Køb
+RGTI,"Rigetti Computing, Inc.",4,Køb
+RHM.DE,Rheinmetall AG,4,Køb
+SOUN,"SoundHound AI, Inc.",4,Køb
+UBER,"Uber Technologies, Inc.",4,Køb
+VRNA,Verona Pharma plc,4,Køb
+X,United States Steel Corporation,4,Køb
+AMD,"Advanced Micro Devices, Inc.",3,Hold
+ANET,Arista Networks Inc,3,Hold
+ARM,Arm Holdings plc,3,Hold
+ASML,ASML Holding N.V.,3,Hold
+AVGO,Broadcom Inc.,3,Hold
+BRK-B,Berkshire Hathaway Inc.,3,Hold
+CAT,Caterpillar Inc.,3,Hold
+CSCO,"Cisco Systems, Inc.",3,Hold
+DE,Deere & Company,3,Hold
+FTNT,"Fortinet, Inc.",3,Hold
+GOOG,Alphabet Inc.,3,Hold
+IBM,International Business Machines Corporation,3,Hold
+ISS.CO,ISS A/S,3,Hold
+MA,Mastercard Incorporated,3,Hold
+MATAS.CO,Matas A/S,3,Hold
+META,"Meta Platforms, Inc.",3,Hold
+NOC,Northrop Grumman Corporation,3,Hold
+NOK,Nokia Oyj,3,Hold
+NVDA,NVIDIA Corporation,3,Hold
+PATH,UiPath Inc.,3,Hold
+PYPL,"PayPal Holdings, Inc.",3,Hold
+QQQ,Invesco QQQ Trust,3,Hold
+RTX,RTX Corporation,3,Hold
+SOFI,"SoFi Technologies, Inc.",3,Hold
+SONY,Sony Group Corporation,3,Hold
+SPY,SPDR S&P 500 ETF,3,Hold
+SWKS,"Skyworks Solutions, Inc.",3,Hold
+TEL,TE Connectivity plc,3,Hold
+TSLA,"Tesla, Inc.",3,Hold
+TSM,Taiwan Semiconductor Manufacturing Company Limited,3,Hold
+U,Unity Software Inc.,3,Hold
+V,Visa Inc.,3,Hold
+BABA,Alibaba Group Holding Limited,2,Sælg
+VWDRY,Vestas Wind Systems A/S,2,Sælg
+005930.KS,"Samsung Electronics Co., Ltd.",1,Stærk Sælg
+AAPL,Apple Inc.,1,Stærk Sælg
+ABBV,AbbVie Inc.,1,Stærk Sælg
+ADBE,Adobe Inc.,1,Stærk Sælg
+ADI,"Analog Devices, Inc.",1,Stærk Sælg
+AMGN,Amgen Inc.,1,Stærk Sælg
+AMZN,"Amazon.com, Inc.",1,Stærk Sælg
+BMW.DE,Bayerische Motoren Werke Aktiengesellschaft,1,Stærk Sælg
+BO.CO,Bang & Olufsen a/s,1,Stærk Sælg
+DEMRF,American Tungsten Corp.,1,Stærk Sælg
+FUBO,fuboTV Inc.,1,Stærk Sælg
+HOLX,"Hologic, Inc.",1,Stærk Sælg
+INTC,Intel Corporation,1,Stærk Sælg
+JNJ,Johnson & Johnson,1,Stærk Sælg
+KHC,The Kraft Heinz Company,1,Stærk Sælg
+LLY,Eli Lilly and Company,1,Stærk Sælg
+LMND,"Lemonade, Inc.",1,Stærk Sælg
+MERC,Mercer International Inc.,1,Stærk Sælg
+MRK,"Merck & Co., Inc.",1,Stærk Sælg
+MU,"Micron Technology, Inc.",1,Stærk Sælg
+NKE,"NIKE, Inc.",1,Stærk Sælg
+NXPI,NXP Semiconductors N.V.,1,Stærk Sælg
+ORSTED.CO,Ørsted A/S,1,Stærk Sælg
+PEP,"PepsiCo, Inc.",1,Stærk Sælg
+PFE,Pfizer Inc.,1,Stærk Sælg
+PINS,"Pinterest, Inc.",1,Stærk Sælg
+QCOM,QUALCOMM Incorporated,1,Stærk Sælg
+QS,QuantumScape Corporation,1,Stærk Sælg
+RNAC,"Cartesian Therapeutics, Inc.",1,Stærk Sælg
+SMCI,"Super Micro Computer, Inc.",1,Stærk Sælg
+SWK,"Stanley Black & Decker, Inc.",1,Stærk Sælg
+TER,"Teradyne, Inc.",1,Stærk Sælg
+TXN,Texas Instruments Incorporated,1,Stærk Sælg
+VUSA.DE,Vanguard S&P 500 UCITS ETF,1,Stærk Sælg
+VWS.CO,Vestas Wind Systems A/S,1,Stærk Sælg
+WGS,GeneDx Holdings Corp.,1,Stærk Sælg
+NVO,Novo Nordisk A/S,1,Stærk Sælg

@@ -7,71 +7,53 @@ Dette repository indeholder et Python-program til arbejde med aktiedata.
 - Python 3.10+ anbefales
 - `pip` (brug `python -m pip` hvis `pip` ikke findes)
 
-## Opret og aktivér et virtuelt miljø (venv)
+## Python 3 – uv setup fra scratch
 
-Windows (PowerShell):
+Denne guide viser, hvordan du starter et Python-projekt helt fra bunden med **uv** som virtual environment og dependency manager.
 
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
+---
 
-Windows (CMD):
-
-```cmd
-python -m venv venv
-venv\Scripts\activate.bat
-```
-
-macOS / Linux / WSL:
+## 1️⃣ Start med tom projektmappe
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-```
+mkdir my_project
+cd my_project
+touch main.py
 
-Hvis du får en fejl ved aktivering i PowerShell, kan det skyldes execution policy. Kør eventuelt (som administrator) `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` eller brug CMD/WSL i stedet.
+# Installer uv (kun én gang på maskinen)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-## Installer afhængigheder
+# check version
+uv --version
 
-Når venv er aktiveret, installer dependencies:
+# Initialisér projekt med uv
+uv init
+````
 
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+## Dette opretter
 
-Hvis `requirements.txt` ikke findes eller er ufuldstændig, kan du generere en ny fil efter at have installeret pakker:
+- pyproject.toml → projektmetadata og dependencies
+- .python-version → Python-version uv skal bruge
 
-```bash
-pip freeze > requirements.txt
-```
+## Opret virtual environment
 
-## Kør programmet
+````bash
+uv venv
+````
 
-Fra projektroden (sørg for at venv er aktiveret):
+## run program
 
-```bash
-python app.py
-```
+````bash
+python main.py
+````
 
-På systemer med Bash (WSL, macOS, Linux) kan du også køre `start.sh`:
+## add in github
 
-```bash
-bash start.sh
-```
-
-## Stop / deaktiver venv
-
-```bash
-deactivate
-```
-
-## Fejlretningstips
-
-- Hvis `pip` ikke findes: brug `python -m pip install -r requirements.txt`.
-- Hvis Python-version er forkert: installer en understøttet Python-version og gentag venv-opsætningen.
-- Hvis du mangler datafiler som `tickers.json` eller `stock_scores.csv`, tjek at du er i projektroden.
+````bash
+git init
+git add .
+git commit -m "Initial commit"
+````
 
 
 ## add in github
@@ -86,7 +68,7 @@ git commit -m "Initial commit"
 
 For at undgå at uønskede filer bliver inkluderet i versionkontrol, skal du sørge for at have en `.gitignore` fil med følgende indhold:
 
-```
+````bash
 venv/
 .venv/
 __pycache__/
@@ -97,4 +79,4 @@ __pycache__/
 *.sqlite3
 .env
 .DS_Store
-```
+````

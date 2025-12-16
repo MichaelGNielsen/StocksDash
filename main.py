@@ -1,4 +1,4 @@
-# python stocks.py --debug
+# python main.py --debug
 # https://imgur.com/a/R8BMBLa
 
 

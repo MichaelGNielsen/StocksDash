@@ -1,0 +1,30 @@
+<span id="markdown-mermaid" aria-hidden="true"
+                    data-dark-mode-theme="dark"
+                    data-light-mode-theme="default"
+                    data-max-text-size="50000"></span>
+                <h1 id="først-installer-python3-venv-hvis-det-mangler">Først installer python3-venv, hvis det mangler</h1>
+<p>sudo apt install python3-venv</p>
+<h1 id="lav-et-nyt-virtuelt-miljø-feks-venv">Lav et nyt virtuelt miljø, f.eks. &quot;venv&quot;</h1>
+<p>python3 -m venv venv</p>
+<h1 id="aktivér-venv">Aktivér venv</h1>
+<p>source venv/bin/activate</p>
+<h1 id="nu-kan-du-installere-yfinance-uden-fejl">Nu kan du installere yfinance uden fejl</h1>
+<p>pip install yfinance</p>
+<h1 id="lav-et-script-feks-start_venvsh">Lav et script, f.eks. start_venv.sh</h1>
+<pre><code class="language-bash"><span class="hljs-comment"># !/bin/bash</span>
+
+<span class="hljs-comment"># Gå til din projektmappe</span>
+<span class="hljs-comment"># C:\Users\mgn\OneDrive\nilfisk\src\python\stocks</span>
+
+
+<span class="hljs-comment"># Aktivér venv</span>
+
+<span class="hljs-built_in">source</span> venv/bin/activate
+
+<span class="hljs-comment"># (valgfrit) skriv en besked</span>
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;Venv aktiveret. Klar til at køre Python.&quot;</span>
+</code></pre>
+<h1 id="gør-scriptet-eksekverbart">Gør scriptet eksekverbart</h1>
+<pre><code class="language-bash"><span class="hljs-built_in">chmod</span> +x start_venv.sh
+</code></pre>

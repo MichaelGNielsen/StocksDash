@@ -8,9 +8,16 @@
         5
     ],
     "bollinger": false,
+<<<<<<< HEAD
     "timespan": "3mo",
     "show_legends": false,
     "candlestick": true,
     "last_ticker": "RHM.DE",
+=======
+    "timespan": "6mo",
+    "show_legends": false,
+    "candlestick": true,
+    "last_ticker": "VWDRY",
+>>>>>>> e23f9c4 (Initial commit)
     "language": "en"
 }

@@ -31,11 +31,11 @@ else
     warn "Ingen requirements.txt – opret med 'pip freeze > requirements.txt'"
 fi
 
-# 4. Kør stocks.py
-if [ -f "stocks.py" ]; then
-    log "Kører stocks.py..."
-    python3 stocks.py
+# 4. Kør main.py
+if [ -f "main.py" ]; then
+    log "Kører main.py..."
+    python3 main.py
 else
-    error "stocks.py blev ikke fundet!"
+    error "main.py blev ikke fundet!"
     exit 1
 fi

@@ -53,6 +53,20 @@ python main.py
 git init
 git add .
 git commit -m "Initial commit"
+
+# setup github
+git remote add origin https://github.com/MichaelGNielsen/StocksDash.git
+
+# push to github
+git remote -v
+git push
+git push --set-upstream origin master
+
+# omdøb til main
+git branch -m master main
+
+# push til main
+git push -u origin main
 ````
 
 

@@ -70,7 +70,7 @@ git push -u origin main
 ````
 
 
-## add in github
+## Add Project to GitHub
 
 ````bash
 git init

@@ -1,8 +1,8 @@
 from dash import Dash, dcc, html, Input, Output, State
 import plotly.graph_objs as go
-from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker
+from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name
 from plotting import plot_trends, plot_bollinger_bands, plot_macd, plot_breakout
-import dash
+#import dash
 import numpy as np
 import pandas as pd
 
@@ -145,13 +145,13 @@ def create_app():
             print(f"Debug: last_ticker fra præferencer ugyldig eller mangler ({preferences.get('last_ticker')}). Bruger fallback: {last_ticker}")
         else:
             print(f"Debug: Hentet last_ticker fra præferencer ved sideload: {last_ticker}")
-        
+
         if last_ticker not in tickers:
             print(f"Debug: last_ticker {last_ticker} ikke i tickers. Tilføjer til tickers.json.")
             company_name = get_company_name(last_ticker)
             tickers[last_ticker] = company_name
             save_tickers(tickers)
-        
+
         print(f"Debug: Initialiserer ticker-dropdown med last_ticker: {last_ticker}")
         return last_ticker
 
@@ -236,8 +236,13 @@ def create_app():
             upper_band, lower_band = plot_bollinger_bands(data)
             traces.extend([upper_band, lower_band])
 
-        breakout_trace, breakout_annotations, has_breakout = plot_breakout(data)
-        traces.append(breakout_trace)
+        use_breakout = preferences.get('use_breakout', False)
+        if use_breakout:
+            breakout_trace, breakout_annotations, has_breakout = plot_breakout(data)
+            traces.append(breakout_trace)
+        else:
+            has_breakout = False
+            breakout_annotations = []
 
         pe_ratio = get_pe_ratio(ticker)
         beta = get_beta(ticker)
@@ -449,7 +454,6 @@ def create_app():
                 yaxis={
                     'title': 'Volume',
                     'range': [0, None],
-                    'autorange': True,
                     'zeroline': True,
                     'tickformat': ',.0f',
                     'showgrid': True

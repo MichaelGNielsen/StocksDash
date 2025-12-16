@@ -453,7 +453,8 @@ def create_app():
                 },
                 yaxis={
                     'title': 'Volume',
-                    'range': [0, None],
+                    'rangemode': 'tozero',
+                    'autorange': True,
                     'zeroline': True,
                     'tickformat': ',.0f',
                     'showgrid': True

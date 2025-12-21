@@ -388,8 +388,10 @@ def create_app():
         try:
             # Valider volumen-data
             volume_data = data['Volume'].dropna()
-            if volume_data.empty or (volume_data <= 0).any():
-                print(f"Debug: Ugyldige volumen-data for {ticker_long}: Tom, negative eller nul-værdier")
+            # Tillad nul-værdier i volumen (nogle tickers/intervals bruger 0 ved ingen aktivitet).
+            # Afvis kun, hvis der findes negative værdier eller datasættet er tomt.
+            if volume_data.empty or (volume_data < 0).any():
+                print(f"Debug: Ugyldige volumen-data for {ticker_long}: Tomt eller negative værdier")
                 return {
                     'data': [],
                     'layout': go.Layout(title=f'Ugyldige volumen-data for {ticker_long}')
@@ -421,13 +423,25 @@ def create_app():
                 color = 'green' if data['Close'].iloc[i] > data['Close'].iloc[i-1] else 'red'
                 volume_colors.append(color)
 
-            # Opret volumen-trace med alle datapunkter
+            # Tegn nul-volumen som en meget lille epsilon (usynlig effekt på skala),
+            # men behold original værdi i hover via `customdata`. Sæt lav opacity for nul.
+            original_vol = data['Volume'].copy()
+            max_vol = original_vol.max() if original_vol.max() > 0 else 1
+            eps = max(1, int(max_vol * 1e-6))
+            plot_vol = original_vol.copy()
+            plot_vol[plot_vol == 0] = eps
+
+            # Lav per-bar opacity: lavere for oprindelige 0-værdier
+            opacities = [0.35 if v == 0 else 1.0 for v in original_vol]
+
+            # Opret volumen-trace med alle datapunkter, brug customdata til hover
             volume_trace = go.Bar(
                 x=data.index,
-                y=data['Volume'],
+                y=plot_vol,
                 name='Volume',
-                marker=dict(color=volume_colors),
-                hovertemplate='Date: %{x}<br>Volume: %{y:,.0f}<extra></extra>'
+                marker=dict(color=volume_colors, opacity=opacities),
+                customdata=original_vol,
+                hovertemplate='Date: %{x}<br>Volume: %{customdata:,.0f}<extra></extra>'
             )
         except Exception as e:
             print(f"Debug: Fejl ved generering af volume-graf for {ticker_long}: {e}")
@@ -459,6 +473,9 @@ def create_app():
                     'tickformat': ',.0f',
                     'showgrid': True
                 },
+                # Bevar brugerens zoom/axis state på opdateringer for at undgå
+                # at grafikalen skifter og skjuler små eller nul-højder.
+                uirevision='volume-graph',
                 showlegend='show_legends' in legend_toggle,
                 legend=dict(
                     x=0,

@@ -1,14 +1,14 @@
 {
     "trend_days": [
         50,
-        10,
+        200,
         5,
-        200
+        10
     ],
     "bollinger": false,
     "timespan": "1y",
     "show_legends": true,
     "candlestick": true,
-    "last_ticker": "TEL.OL",
+    "last_ticker": "AMZN",
     "language": "en"
 }

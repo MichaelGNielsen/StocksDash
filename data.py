@@ -1,5 +1,6 @@
 import yfinance as yf
 import pandas as pd
+import pandas_ta as ta
 import json
 import os
 import re
@@ -86,23 +87,85 @@ def get_stock_data(ticker, timespan):
         "10y": "10y", "max": "max"
     }
 
-    period = period_map.get(timespan, "6mo")
-    print(f"Debug: get_stock_data bruger period: {period}")
+    # Altid hent max data (eller 10y som fallback) for at have nok data til alle indikatorer
+    print(f"Debug: Henter 'max' data for indikatorberegning")
 
     for attempt in range(3):
         try:
-            data = stock.history(period=period)
+            # Hent altid max data for indikatorberegning
+            full_data = stock.history(period="max")
             ticker_long = get_long_name(ticker)
-            if data.empty:
-                print(f"Debug: Tomt datasæt returneret for {ticker} med period {period}")
+
+            if full_data.empty:
+                print(f"Debug: Tomt datasæt returneret for {ticker}")
                 return pd.DataFrame(), ticker_long
+
             required_columns = ['Close', 'Volume', 'Open', 'High', 'Low']
-            missing_columns = [col for col in required_columns if col not in data]
+            missing_columns = [col for col in required_columns if col not in full_data]
             if missing_columns:
                 print(f"Debug: Manglende kolonner i data for {ticker}: {missing_columns}")
                 return pd.DataFrame(), ticker_long
-            print(f"Debug: get_stock_data hentede data for {ticker}. Datalængde: {len(data)}, Kolonner: {list(data.columns)}")
+
+            # Beregn tekniske indikatorer på FULDT datasæt
+            print(f"Debug: Beregner indikatorer på {len(full_data)} datapunkter")
+            # Beregn SMA200 og genbrug som 'EMA200' for kompatibilitet med resten af koden.
+            # Dette undgår at beregne 200-dages glidende gennemsnit to gange (i plotting).
+            full_data['SMA200'] = full_data['Close'].rolling(window=200, min_periods=1).mean()
+            # Behold kolonnenavn 'EMA200' for bagudkompatibilitet (brug SMA200 værdi)
+            full_data['EMA200'] = full_data['SMA200']
+            full_data['RSI'] = ta.rsi(full_data['Close'], length=14)
+            full_data['ATR'] = ta.atr(full_data['High'], full_data['Low'], full_data['Close'], length=14)
+
+            # Logik for købssignal
+            full_data['signal'] = (full_data['Close'] > full_data['EMA200']) & (full_data['RSI'] > 60)
+
+            # Filtrer data baseret på valgt timespan
+            requested_period = period_map.get(timespan, "1y")
+            if requested_period != "max":
+                # Konverter index til DatetimeIndex hvis nødvendigt
+                if not isinstance(full_data.index, pd.DatetimeIndex):
+                    full_data.index = pd.to_datetime(full_data.index)
+
+                # Brug pandas Timestamp for konsistens — tilpas timezone hvis index er timezone-aware
+                if full_data.index.tz is not None:
+                    now = pd.Timestamp.now(tz=full_data.index.tz)
+                else:
+                    now = pd.Timestamp.now()
+
+                # Bestem cutoff ved hjælp af pandas DateOffset eller Timedelta
+                if requested_period == "1d":
+                    cutoff_date = now - pd.Timedelta(days=1)
+                elif requested_period == "1wk":
+                    cutoff_date = now - pd.Timedelta(weeks=1)
+                elif requested_period == "1mo":
+                    cutoff_date = now - pd.Timedelta(days=30)
+                elif requested_period == "3mo":
+                    cutoff_date = now - pd.Timedelta(days=90)
+                elif requested_period == "6mo":
+                    cutoff_date = now - pd.Timedelta(days=180)
+                elif requested_period == "1y":
+                    cutoff_date = now - pd.Timedelta(days=365)
+                elif requested_period == "3y":
+                    cutoff_date = now - pd.Timedelta(days=365*3)
+                elif requested_period == "5y":
+                    cutoff_date = now - pd.Timedelta(days=365*5)
+                elif requested_period == "10y":
+                    cutoff_date = now - pd.Timedelta(days=365*10)
+                else:
+                    cutoff_date = now - pd.Timedelta(days=180)
+
+                print(f"Debug: Filtrerer data fra {cutoff_date} til {now}")
+
+                # Filtrer data - brug .loc og copy for at undgå SettingWithCopyWarning
+                data = full_data.loc[full_data.index >= cutoff_date].copy()
+                print(f"Debug: Filtrerede data til {timespan} ({len(data)} datapunkter af {len(full_data)})")
+            else:
+                data = full_data.copy()
+                print(f"Debug: Bruger fuldt datasæt (max)")
+
+            print(f"Debug: get_stock_data returnerer {len(data)} datapunkter for {timespan}. Kolonner: {list(data.columns)}")
             return data, ticker_long
+
         except YFRateLimitError:
             print(f"Debug: Rate limit nået for {ticker}: Venter {2 ** attempt} sekunder...")
             time.sleep(2 ** attempt)
@@ -147,7 +210,7 @@ def load_preferences():
     default_preferences = {
         "trend_days": [5, 10, 20, 50, 100, 200],
         "bollinger": False,
-        "timespan": "6mo",
+        "timespan": "1y",
         "show_legends": False,
         "language": "en",
         "candlestick": True,
@@ -176,7 +239,7 @@ def save_preferences(preferences):
     print(f"Debug: save_preferences kaldt med præferencer: {preferences}")
     validated_preferences = preferences.copy()
     valid_trend_days = [5, 10, 20, 50, 100, 200]
-    
+
     # Valider trend_days
     validated_preferences["trend_days"] = [
         int(day) for day in validated_preferences.get("trend_days", valid_trend_days)

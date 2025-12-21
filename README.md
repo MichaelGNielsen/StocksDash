@@ -63,8 +63,11 @@ source .venv/bin/activate
 ### 3. Kør programmet
 
 ```bash
-# Eksempel: kør main.py
+# Metode 1: Med aktiveret virtual environment
 python main.py
+
+# Metode 2: Direkte med uv (uden at aktivere venv)
+uv run python main.py
 ```
 
 **Det er det!** Du behøver ikke køre `uv venv` eller `uv sync` igen – alt er allerede sat op.

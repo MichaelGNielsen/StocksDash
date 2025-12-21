@@ -19,6 +19,7 @@ nest-asyncio==1.6.0
 numpy==2.3.4
 packaging==25.0
 pandas==2.3.3
+pandas_ta==0.3.14b
 peewee==3.18.3
 platformdirs==4.5.0
 plotly==6.4.0

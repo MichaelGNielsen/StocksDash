@@ -5,7 +5,18 @@ import pandas as pd
 def plot_trends(data, trend_days_list):
     trends = []
     for days in trend_days_list:
-        trend_data = data['Close'].rolling(window=days, min_periods=1).mean()
+        # Genbrug eventuelt allerede beregnede SMA-kolonner for at undgÃ¥ dobbel-beregning.
+        col_name = f'SMA{days}'
+        if col_name in data:
+            trend_data = data[col_name]
+        else:
+            trend_data = data['Close'].rolling(window=days, min_periods=1).mean()
+            # Gem beregningen i DataFrame sÃ¥ andre funktioner kan genbruge den
+            try:
+                data[col_name] = trend_data
+            except Exception:
+                # Hvis data er en view eller lign., spring gem-step over
+                pass
         trends.append(go.Scatter(x=data.index, y=trend_data, mode='lines', name=f'{days}-Day MA'))
     return trends
 
@@ -56,7 +67,7 @@ def plot_breakout(data):
     macd = ema12 - ema26
     signal = macd.ewm(span=9, adjust=False).mean()
 
-    # Tjek for NaN-værdier
+    # Tjek for NaN-vï¿½rdier
     if any(pd.isna([ma10.iloc[-1], ma20.iloc[-1], ma50.iloc[-1], avg_volume.iloc[-1], macd.iloc[-1], signal.iloc[-1]])):
         print(f"Debug: NaN-vaerdier fundet i beregninger: MA10={ma10.iloc[-1]}, MA20={ma20.iloc[-1]}, "
               f"MA50={ma50.iloc[-1]}, AvgVol={avg_volume.iloc[-1]}, MACD={macd.iloc[-1]}, Signal={signal.iloc[-1]}")
@@ -72,7 +83,7 @@ def plot_breakout(data):
     breakout_points = []
     for i in range(50, len(data)):
         try:
-            # Tjek MACD over Signal med lille tærskel
+            # Tjek MACD over Signal med lille tï¿½rskel
             is_macd_above_signal = macd.iloc[i] > signal.iloc[i] + 0.01
             # Tjek volumen-spike
             is_volume_spike = data['Volume'].iloc[i] > 1.1 * avg_volume.iloc[i]
@@ -81,7 +92,7 @@ def plot_breakout(data):
             is_10ma_upward = ma10.iloc[i] > ma10.iloc[i-1]
             is_20ma_upward = ma20.iloc[i] > ma20.iloc[i-1]
             is_close_above_50ma = data['Close'].iloc[i] > ma50.iloc[i]
-            # Fjernet is_50ma_upward for at gøre betingelserne mindre strenge
+            # Fjernet is_50ma_upward for at gï¿½re betingelserne mindre strenge
 
             # Log betingelser for debugging
             if not is_macd_above_signal:
@@ -98,7 +109,7 @@ def plot_breakout(data):
             if not is_20ma_upward:
                 print(f"Debug: 20MA opadgaaende fejlet ved index {i}: MA20={ma20.iloc[i]}, MA20_prev={ma20.iloc[i-1]}")
 
-            # Hvis alle betingelser er opfyldt, markér som breakout
+            # Hvis alle betingelser er opfyldt, markï¿½r som breakout
             if (is_macd_above_signal and is_volume_spike and is_10ma_above_20ma and
                 is_10ma_upward and is_20ma_upward and is_close_above_50ma):
                 print(f"Debug: Breakout detekteret ved index {i}, dato {data.index[i]}: "

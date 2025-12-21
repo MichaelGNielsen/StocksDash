@@ -244,6 +244,93 @@ def create_app():
             has_breakout = False
             breakout_annotations = []
 
+        # Tilføj handels-signaler (køb/sælg) som markører på grafen
+        try:
+            if 'signal' in data:
+                sig = data['signal']
+                # find steder hvor signal ændrer sig
+                changes = sig[sig != sig.shift(1)]
+                buys = changes[changes == 1]
+                sells = changes[changes == -1]
+
+                shapes = []
+                extra_annotations = []
+
+                if not buys.empty:
+                    buy_trace = go.Scatter(
+                        x=buys.index,
+                        y=data.loc[buys.index, 'Close'],
+                        mode='markers',
+                        name='Buy Signal',
+                        marker=dict(symbol='triangle-up', size=12, color='green'),
+                        hovertemplate='Buy<br>Date: %{x}<br>Price: %{y:,.2f}<extra></extra>'
+                    )
+                    traces.append(buy_trace)
+
+                    # Add vertical lines and arrow annotation for buys
+                    for d in buys.index:
+                        shapes.append({
+                            'type': 'line',
+                            'xref': 'x', 'x0': d, 'x1': d,
+                            'yref': 'paper', 'y0': 0, 'y1': 1,
+                            'line': {'color': 'green', 'width': 2, 'dash': 'dot'}
+                        })
+                        extra_annotations.append({
+                            'x': d, 'xref': 'x', 'y': 0.98, 'yref': 'paper',
+                            'text': '▲', 'showarrow': False,
+                            'font': {'size': 14, 'color': 'green'}
+                        })
+
+                if not sells.empty:
+                    sell_trace = go.Scatter(
+                        x=sells.index,
+                        y=data.loc[sells.index, 'Close'],
+                        mode='markers',
+                        name='Sell Signal',
+                        marker=dict(symbol='triangle-down', size=12, color='red'),
+                        hovertemplate='Sell<br>Date: %{x}<br>Price: %{y:,.2f}<extra></extra>'
+                    )
+                    traces.append(sell_trace)
+
+                    # Add vertical lines and arrow annotation for sells
+                    for d in sells.index:
+                        shapes.append({
+                            'type': 'line',
+                            'xref': 'x', 'x0': d, 'x1': d,
+                            'yref': 'paper', 'y0': 0, 'y1': 1,
+                            'line': {'color': 'red', 'width': 2, 'dash': 'dot'}
+                        })
+                        extra_annotations.append({
+                            'x': d, 'xref': 'x', 'y': 0.02, 'yref': 'paper',
+                            'text': '▼', 'showarrow': False,
+                            'font': {'size': 14, 'color': 'red'}
+                        })
+
+                # Merge shapes/annotations into breakout_annotations (used in layout)
+                try:
+                    if isinstance(breakout_annotations, list):
+                        breakout_annotations.extend(extra_annotations)
+                    else:
+                        breakout_annotations = extra_annotations
+                except Exception:
+                    breakout_annotations = extra_annotations
+
+                # Save shapes to data for later inclusion in layout
+                data['_signal_shapes'] = shapes
+
+                # Print besked ved ny ændring i sidste række
+                try:
+                    last_row = data.iloc[-1]
+                    prev_row = data.iloc[-2]
+                    if int(last_row['signal']) == 1 and int(prev_row['signal']) != 1:
+                        print(f"🚀 NYT KØB: Trenden er nu i Perfect Order for {ticker_long}!")
+                    elif int(last_row['signal']) == -1 and int(prev_row['signal']) != -1:
+                        print(f"⚠️ SÆLG/ADVARSEL: Trenden er brudt for {ticker_long}.")
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Debug: Fejl ved tilføjelse af trade-signaler til grafen: {e}")
+
         pe_ratio = get_pe_ratio(ticker)
         beta = get_beta(ticker)
 
@@ -280,6 +367,7 @@ def create_app():
                     bgcolor='rgba(255,255,255,0.5)'
                 ),
                 annotations=breakout_annotations,
+                shapes=(data.pop('_signal_shapes') if '_signal_shapes' in data else []),
                 paper_bgcolor=bg_color,
                 plot_bgcolor=bg_color,
                 font=dict(color=font_color),
@@ -491,6 +579,17 @@ def create_app():
                 autosize=True
             )
         }
+
+        # Hvis vi har genereret signal-shapes tidligere, inkluder dem i hoved-figurens layout
+        try:
+            shapes = []
+            if '_signal_shapes' in data:
+                shapes = data.pop('_signal_shapes')
+            if shapes:
+                # Inkluder shapes i både volume_figure og hoved-figure via global scope
+                volume_figure['layout']['shapes'] = shapes
+        except Exception:
+            pass
 
         print(f"Debug: Volume-graf genereret succesfuldt for {ticker_long}, autosize=True, tema: {theme}")
         return volume_figure

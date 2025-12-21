@@ -76,6 +76,186 @@ def get_beta(ticker):
         print(f"Debug: get_beta fandt ingen beta for {ticker}")
         return None
 
+
+def get_trend_signals(df):
+    """
+    Analyserer om en aktie er i en 'Perfect Order' trend.
+    Regler:
+    1. SMA 5 > SMA 10 > SMA 20
+    2. Alle tre gennemsnit skal stige (nuværende værdi > forrige værdi)
+    3. Valgfrit filter: Pris over SMA 200 for langsigtede trends.
+    """
+    # Sørg for at vi har nok data til beregningerne
+    if df is None or len(df) < 200:
+        return df
+
+    # find close-series (støt både 'Close' og 'close')
+    if 'Close' in df:
+        close = df['Close']
+    elif 'close' in df:
+        close = df['close']
+    else:
+        return df
+
+    # Genbrug allerede beregnede SMA200 hvis tilgængelig
+    if 'SMA200' in df:
+        sma200 = df['SMA200']
+    else:
+        try:
+            sma200 = ta.sma(close, length=200)
+        except Exception:
+            sma200 = close.rolling(window=200, min_periods=1).mean()
+        df['sma200'] = sma200
+
+    # Beregn SMA værdier (brug pandas_ta hvis muligt)
+    try:
+        df['sma5'] = ta.sma(close, length=5)
+        df['sma10'] = ta.sma(close, length=10)
+        df['sma20'] = ta.sma(close, length=20)
+        # hvis ikke allerede sat, sæt sma200 (laves ovenfor)
+        df['sma200'] = df.get('sma200', sma200)
+    except Exception:
+        df['sma5'] = close.rolling(window=5, min_periods=1).mean()
+        df['sma10'] = close.rolling(window=10, min_periods=1).mean()
+        df['sma20'] = close.rolling(window=20, min_periods=1).mean()
+        df['sma200'] = df.get('sma200', close.rolling(window=200, min_periods=1).mean())
+
+    # Tjek rækkefølgen (The Stack)
+    df['stack_ok'] = (df['sma5'] > df['sma10']) & (df['sma10'] > df['sma20'])
+
+    # Tjek hældningen (optrending)
+    df['sma5_rising'] = df['sma5'] > df['sma5'].shift(1)
+    df['sma10_rising'] = df['sma10'] > df['sma10'].shift(1)
+    df['sma20_rising'] = df['sma20'] > df['sma20'].shift(1)
+    df['all_rising'] = df['sma5_rising'] & df['sma10_rising'] & df['sma20_rising']
+
+    # Kombineret signal
+    df['perfect_trend'] = df['stack_ok'] & df['all_rising']
+
+    # Langsigtet filter
+    df['long_term_ok'] = close > df['sma200']
+
+    return df
+
+
+def get_trade_signals(df):
+    """
+    Opretter handels-signaler: 1 = køb, -1 = salg, 0 = neutral.
+    Købs-logik: Perfect Order (sma5>sma10>sma20) + sma5 stigende + pris > sma200
+    Salgs-logik: sma5 krydser under sma10 OR pris < sma20
+    """
+    if df is None or len(df) < 20:
+        return df
+
+    # find close-series (støtter både 'Close' og 'close')
+    if 'Close' in df:
+        close = df['Close']
+    elif 'close' in df:
+        close = df['close']
+    else:
+        return df
+
+    # Genbrug eksisterende SMA-kolonner hvis mulige, ellers beregn
+    for days in (5, 10, 20, 200):
+        col = f'sma{days}'
+        if col not in df:
+            try:
+                df[col] = ta.sma(close, length=days)
+            except Exception:
+                df[col] = close.rolling(window=days, min_periods=1).mean()
+
+    # Bevar tidligere simple boolean-signal (hvis til stede)
+    if 'signal' in df:
+        df['signal_basic'] = df['signal']
+
+    # Købs-logik (Perfect Order + stigende + pris > sma200)
+    buy_condition = (
+        (df['sma5'] > df['sma10']) &
+        (df['sma10'] > df['sma20']) &
+        (df['sma5'] > df['sma5'].shift(1)) &
+        (close > df['sma200'])
+    )
+
+    # Salgs-logik
+    sell_condition = (df['sma5'] < df['sma10']) | (close < df['sma20'])
+
+    # Opret signal-kolonne: 0 neutral, 1 køb, -1 salg
+    df['signal'] = 0
+    df.loc[buy_condition.fillna(False), 'signal'] = 1
+    df.loc[sell_condition.fillna(False), 'signal'] = -1
+
+    return df
+
+
+def get_trade_signals_with_stop(df):
+    """
+    Handels-signaler med stop-loss:
+    - Beregner sma5/10/20/200 og ATR
+    - Buy: Perfect Order + sma5 stigende + pris > sma200
+    - Stop loss: sma20 - 0.5 * ATR
+    - Sell: pris < stop_loss eller sma5 < sma10
+    """
+    if df is None or len(df) < 20:
+        return df
+
+    # support både kapitaliserede kolonnenavne og små
+    if 'Close' in df:
+        close = df['Close']
+    elif 'close' in df:
+        close = df['close']
+    else:
+        return df
+
+    if 'High' in df:
+        high = df['High']
+    else:
+        high = df.get('high', close)
+    if 'Low' in df:
+        low = df['Low']
+    else:
+        low = df.get('low', close)
+
+    # Beregn SMA'er (genbrug hvis tilstede)
+    for days in (5, 10, 20, 200):
+        col = f'sma{days}'
+        if col not in df:
+            try:
+                df[col] = ta.sma(close, length=days)
+            except Exception:
+                df[col] = close.rolling(window=days, min_periods=1).mean()
+
+    # Beregn ATR
+    try:
+        df['atr'] = ta.atr(high, low, close, length=14)
+    except Exception:
+        # Enkel ATR-approx (true range rolling mean)
+        tr1 = high - low
+        tr2 = (high - close.shift()).abs()
+        tr3 = (low - close.shift()).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        df['atr'] = tr.rolling(window=14, min_periods=1).mean()
+
+    # Købslogik
+    buy_condition = (
+        (df['sma5'] > df['sma10']) &
+        (df['sma10'] > df['sma20']) &
+        (close > df['sma200']) &
+        (df['sma5'] > df['sma5'].shift(1))
+    )
+
+    # Stop loss niveau
+    df['stop_loss'] = df['sma20'] - (df['atr'] * 0.5)
+
+    # Salgslogik
+    sell_condition = (close < df['stop_loss']) | (df['sma5'] < df['sma10'])
+
+    # Signal kolonne: 1 køb, -1 sælg, 0 neutral
+    df['signal'] = 0
+    df.loc[buy_condition.fillna(False), 'signal'] = 1
+    df.loc[sell_condition.fillna(False), 'signal'] = -1
+
+    return df
+
 def get_stock_data(ticker, timespan):
     ticker = normalize_ticker(ticker)
     print(f"Debug: get_stock_data kaldt med ticker: {ticker}, timespan: {timespan}")
@@ -116,8 +296,22 @@ def get_stock_data(ticker, timespan):
             full_data['RSI'] = ta.rsi(full_data['Close'], length=14)
             full_data['ATR'] = ta.atr(full_data['High'], full_data['Low'], full_data['Close'], length=14)
 
-            # Logik for købssignal
+            # Logik for købssignal (behold som basic-signal)
             full_data['signal'] = (full_data['Close'] > full_data['EMA200']) & (full_data['RSI'] > 60)
+            full_data['signal_basic'] = full_data['signal']
+
+            # Beregn trend-signaler (perfect order osv.) og tilføj kolonner til full_data
+            try:
+                full_data = get_trend_signals(full_data)
+            except Exception as e:
+                print(f"Debug: Fejl ved beregning af trend-signaler: {e}")
+
+            # Beregn trade-signaler (køb/sælg/neutral) og overskriv 'signal' med -1/0/1
+            try:
+                # Brug stop-loss-version for mere robuste salgssignaler
+                full_data = get_trade_signals_with_stop(full_data)
+            except Exception as e:
+                print(f"Debug: Fejl ved beregning af trade-signaler: {e}")
 
             # Filtrer data baseret på valgt timespan
             requested_period = period_map.get(timespan, "1y")

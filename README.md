@@ -107,3 +107,47 @@ __pycache__/
 .env
 .DS_Store
 ```
+
+## 📈 Trading Strategi: SMA Perfect Order (3-6 mdr. horisont)
+
+Dette program anvender en trend-følgende strategi baseret på "Moving Average Stacking" og momentum. Strategien er designet til mellemlange trends (3-6 måneder) og fokuserer på at købe aktier med stærk acceleration og beskytte profitten med et glidende stop-loss.
+
+### 🛠 Tekniske Indikatorer
+
+* **SMA 5 (Hurtig):** Fanger det helt korte momentum.
+* **SMA 10 (Medium):** Bekræfter retningen.
+* **SMA 20 (Trend-base):** Fungerer som den primære støtte og grundlag for stop-loss.
+* **SMA 200 (Filter):** Den langsigtede trend-indikator. Prisen skal være over denne for at tillade køb.
+* **ATR (14):** Bruges til at beregne en buffer for stop-loss (volatilitet).
+
+---
+
+### 🟢 Købssignaler (Entry)
+
+For at udløse et købssignal skal følgende betingelser være opfyldt samtidig:
+
+1. **Pris-filter:** Prisen skal lukke over **SMA 200**.
+2. **Perfect Order (The Stack):** SMA 5 skal være over SMA 10, og SMA 10 skal være over SMA 20 (`SMA 5 > SMA 10 > SMA 20`).
+3. **Momentum (Optrending):** SMA 5 skal have en positiv hældning (værdien i dag er højere end i går).
+4. **Bekræftelse:** Prisen skal lukke over SMA 5.
+
+---
+
+### 🔴 Salgssignaler (Exit & Stop Loss)
+
+Strategien bruger to typer udgange for at minimere risiko:
+
+1. **Trend-brud:** Hvis den hurtige trend knækker (`SMA 5 < SMA 10`).
+2. **Trailing Stop Loss:** Hvis prisen lukker under det glidende sikkerhedsnet.
+   * **Stop-niveau:** `SMA 20 - (0.5 * ATR)`.
+   * *Dette giver aktien plads til naturlig volatilitet, men lukker positionen hvis den dykker for dybt.*
+
+---
+
+### 📋 Strategiens Logik (Opsummering)
+
+| Tilstand | Handling | Forklaring |
+| :--- | :--- | :--- |
+| **Bullish Stack** | **Køb / Hold** | Alle gennemsnit peger op og ligger i korrekt rækkefølge. |
+| **SMA 5 under 10** | **Advarsel / Sælg** | Momentum er aftagende. Overvej at tage profit. |
+| **Pris under Stop** | **Sælg nu** | Trenden anses for afsluttet eller risikoen er for høj. |

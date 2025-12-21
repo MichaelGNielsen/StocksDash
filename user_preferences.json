@@ -3,12 +3,13 @@
         50,
         200,
         5,
-        10
+        10,
+        20
     ],
     "bollinger": false,
-    "timespan": "1y",
+    "timespan": "6mo",
     "show_legends": true,
     "candlestick": true,
-    "last_ticker": "AMZN",
+    "last_ticker": "SANDISK",
     "language": "en"
 }

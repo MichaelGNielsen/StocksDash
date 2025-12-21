@@ -77,7 +77,7 @@ def get_beta(ticker):
         return None
 
 
-def get_trend_signals(df):
+def check_perfect_order(df):
     """
     Analyserer om en aktie er i en 'Perfect Order' trend.
     Regler:
@@ -256,6 +256,50 @@ def get_trade_signals_with_stop(df):
 
     return df
 
+
+def get_advanced_trade_signals(df):
+    """
+    Avancerede handels-signaler:
+    - Beregner standard SMA'er
+    - Måler hvor langt prisen er fra SMA20 i procent ('extension_pc')
+    - Perfect Order + filter for at undgå køb når aktien er for "strakt"
+    - Returnerer dataframe med kolonner: `sma5,sma10,sma20,sma200,extension_pc,perfect_order,buy_signal,sell_signal`
+    """
+    if df is None or len(df) < 20:
+        return df
+
+    # Support både 'Close' og 'close'
+    if 'Close' in df:
+        close = df['Close']
+    elif 'close' in df:
+        close = df['close']
+    else:
+        return df
+
+    # Beregn eller genbrug SMA'er
+    for days in (5, 10, 20, 200):
+        col = f'sma{days}'
+        if col not in df:
+            try:
+                df[col] = ta.sma(close, length=days)
+            except Exception:
+                df[col] = close.rolling(window=days, min_periods=1).mean()
+
+    # Beregn extension i procent fra sma20
+    df['extension_pc'] = ((close - df['sma20']) / df['sma20']) * 100
+
+    # Perfect Order (sma5 > sma10 > sma20)
+    df['perfect_order'] = (df['sma5'] > df['sma10']) & (df['sma10'] > df['sma20'])
+
+    # Købslogik med sikkerhedsfilter: pris over sma200 og ikke mere end 5% væk fra sma20
+    df['buy_signal'] = (df['perfect_order']) & (close > df['sma200']) & (df['extension_pc'] < 5.0)
+
+    # Salgslogik
+    df['sell_signal'] = (df['sma5'] < df['sma10']) | (close < df['sma20'])
+
+    return df
+
+
 def get_stock_data(ticker, timespan):
     ticker = normalize_ticker(ticker)
     print(f"Debug: get_stock_data kaldt med ticker: {ticker}, timespan: {timespan}")
@@ -300,11 +344,11 @@ def get_stock_data(ticker, timespan):
             full_data['signal'] = (full_data['Close'] > full_data['EMA200']) & (full_data['RSI'] > 60)
             full_data['signal_basic'] = full_data['signal']
 
-            # Beregn trend-signaler (perfect order osv.) og tilføj kolonner til full_data
+            # Beregn check_perfect_order (Perfect Order) og tilføj kolonner til full_data
             try:
-                full_data = get_trend_signals(full_data)
+                full_data = check_perfect_order(full_data)
             except Exception as e:
-                print(f"Debug: Fejl ved beregning af trend-signaler: {e}")
+                print(f"Debug: Fejl ved beregning af check_perfect_order: {e}")
 
             # Beregn trade-signaler (køb/sælg/neutral) og overskriv 'signal' med -1/0/1
             try:

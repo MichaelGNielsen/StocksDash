@@ -151,3 +151,49 @@ Strategien bruger to typer udgange for at minimere risiko:
 | **Bullish Stack** | **Køb / Hold** | Alle gennemsnit peger op og ligger i korrekt rækkefølge. |
 | **SMA 5 under 10** | **Advarsel / Sælg** | Momentum er aftagende. Overvej at tage profit. |
 | **Pris under Stop** | **Sælg nu** | Trenden anses for afsluttet eller risikoen er for høj. |
+
+---
+
+## 🚀 Avanceret Strategi: "Extension Filter" (Med Pullback-Regel)
+
+For at undgå at købe på toppen af stærke ryk, tilbyder strategien nu et **sikkerhedsfilter** baseret på hvor langt prisen er fra SMA 20.
+
+### 📏 Extension (Stretch) — Måling af Afstand
+
+**Extension i procent** = `((Pris - SMA 20) / SMA 20) * 100`
+
+Dette tal forteller hvor mange procent prisen ligger over eller under SMA 20:
+- **Extension = 0%:** Prisen er lige på SMA 20 (ingen afstand).
+- **Extension = 2%:** Prisen er 2% over SMA 20 (moderat afstand).
+- **Extension = 5%:** Prisen er 5% over SMA 20 (god afstand — dette er grænsværdien).
+- **Extension = 8%:** Prisen er 8% over SMA 20 (STRETCH — risikabelt at købe her).
+
+### 🛡️ Avanceret Kaufsignal med Sikkerhedsfilter
+
+Køb kun når **ALT** dette er sandt:
+
+1. **Perfect Order:** `SMA 5 > SMA 10 > SMA 20` ✅
+2. **Langsigtet Filter:** `Pris > SMA 200` ✅
+3. **Sikkerhedsfilter:** `Extension < 5%` ✅ (Aktien er ikke "strakt")
+
+Hvis Perfect Order er der, men Extension ≥ 5%, venter vi på et **pullback** (lille dyk ned mod SMA 20).
+
+### 📊 Signal-Beskeder (get_advanced_trade_signals)
+
+Funktionen `get_advanced_trade_signals(df)` returnerer:
+
+- **🚀 KØB NU:** Perfect Order + Pris > SMA 200 + Extension < 5%
+
+  ```
+  🚀 KØB NU: Perfekt setup og prisen er kun 2.3% over SMA 20.
+  ```
+
+- **🟡 AFVENT:** Perfect Order men Extension ≥ 5%
+  ```
+  🟡 AFVENT: Trenden er stærk, men aktien er 'strakt' (7.2%). Vent på et lille dyk (pullback).
+  ```
+
+- **🛑 SÆLG:** Trend-brud eller pris under SMA 20
+  ```
+  🛑 SÆLG: Trenden er brudt.
+  ```

@@ -67,7 +67,7 @@ source .venv/bin/activate
 python main.py
 
 # Metode 2: Direkte med uv (uden at aktivere venv)
-uv run python main.py
+uv run python main.py --debug
 ```
 
 **Det er det!** Du behøver ikke køre `uv venv` eller `uv sync` igen – alt er allerede sat op.

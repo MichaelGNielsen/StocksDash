@@ -76,8 +76,26 @@ def get_beta(ticker):
         print(f"Debug: get_beta fandt ingen beta for {ticker}")
         return None
 
+# --- NY FUNKTION: Tæl AFVENT dage ---
+def count_pending_days(df):
+    """ Tæller hvor mange dage i træk status har været AFVENT """
+    if df is None or 'perfect_order' not in df or 'extension_pc' not in df:
+        return 0
+    
+    count = 0
+    # Definition af AFVENT (Perfect order OK, men pris er > 5% over SMA20)
+    pending_series = df['perfect_order'] & (df['extension_pc'] >= 5.0)
+    
+    for is_pending in reversed(pending_series):
+        if is_pending:
+            count += 1
+        else:
+            break
+    print(f"Debug: count_pending_days returnerede {count} dage")
+    return count
 
 def check_perfect_order(df):
+    print(f"Debug: check_perfect_order kaldt")
     """
     Analyserer om en aktie er i en 'Perfect Order' trend.
     Regler:
@@ -85,8 +103,10 @@ def check_perfect_order(df):
     2. Alle tre gennemsnit skal stige (nuværende værdi > forrige værdi)
     3. Valgfrit filter: Pris over SMA 200 for langsigtede trends.
     """
+    print(f"Debug: check_perfect_order kaldt")
     # Sørg for at vi har nok data til beregningerne
     if df is None or len(df) < 200:
+        print(f"Debug: check_perfect_order - for lidt data ({len(df) if df is not None else 0})")
         return df
 
     # find close-series (støt både 'Close' og 'close')
@@ -114,7 +134,8 @@ def check_perfect_order(df):
         df['sma20'] = ta.sma(close, length=20)
         # hvis ikke allerede sat, sæt sma200 (laves ovenfor)
         df['sma200'] = df.get('sma200', sma200)
-    except Exception:
+    except Exception as e:
+        print(f"Debug: Fejl i SMA beregning i check_perfect_order: {e}")
         df['sma5'] = close.rolling(window=5, min_periods=1).mean()
         df['sma10'] = close.rolling(window=10, min_periods=1).mean()
         df['sma20'] = close.rolling(window=20, min_periods=1).mean()
@@ -144,6 +165,7 @@ def get_trade_signals(df):
     Købs-logik: Perfect Order (sma5>sma10>sma20) + sma5 stigende + pris > sma200
     Salgs-logik: sma5 krydser under sma10 OR pris < sma20
     """
+    print(f"Debug: get_trade_signals kaldt")
     if df is None or len(df) < 20:
         return df
 
@@ -195,6 +217,8 @@ def get_trade_signals_with_stop(df):
     - Stop loss: sma20 - 0.5 * ATR
     - Sell: pris < stop_loss eller sma5 < sma10
     """
+    print(f"Debug: get_trade_signals_with_stop kaldt")
+
     if df is None or len(df) < 20:
         return df
 
@@ -256,7 +280,7 @@ def get_trade_signals_with_stop(df):
 
     return df
 
-
+# --- OPDATERET: Advanced Trade Signals med trafiklys ---
 def get_advanced_trade_signals(df):
     """
     Avancerede handels-signaler:
@@ -265,6 +289,8 @@ def get_advanced_trade_signals(df):
     - Perfect Order + filter for at undgå køb når aktien er for "strakt"
     - Returnerer dataframe med kolonner: `sma5,sma10,sma20,sma200,extension_pc,perfect_order,buy_signal,sell_signal`
     """
+    print(f"Debug: get_advanced_trade_signals kaldt")
+		
     if df is None or len(df) < 20:
         return df
 
@@ -287,7 +313,8 @@ def get_advanced_trade_signals(df):
 
     # Beregn extension i procent fra sma20
     df['extension_pc'] = ((close - df['sma20']) / df['sma20']) * 100
-
+    print(f"Debug: Aktuel extension_pc: {df['extension_pc'].iloc[-1]:.2f}%")
+	
     # Perfect Order (sma5 > sma10 > sma20)
     df['perfect_order'] = (df['sma5'] > df['sma10']) & (df['sma10'] > df['sma20'])
 

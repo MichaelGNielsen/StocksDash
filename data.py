@@ -81,11 +81,11 @@ def count_pending_days(df):
     """ Tæller hvor mange dage i træk status har været AFVENT """
     if df is None or 'perfect_order' not in df or 'extension_pc' not in df:
         return 0
-    
+
     count = 0
     # Definition af AFVENT (Perfect order OK, men pris er > 5% over SMA20)
     pending_series = df['perfect_order'] & (df['extension_pc'] >= 5.0)
-    
+
     for is_pending in reversed(pending_series):
         if is_pending:
             count += 1
@@ -281,52 +281,77 @@ def get_trade_signals_with_stop(df):
     return df
 
 # --- OPDATERET: Advanced Trade Signals med trafiklys ---
-def get_advanced_trade_signals(df):
+def get_advanced_trade_signals(df, ticker_name="UKENDT"):
     """
-    Avancerede handels-signaler:
-    - Køb: Perfect Order + over SMA200 + rimelig afstand til SMA20.
-    - Breakout er nu en 'styrkemarkør' fremfor et hårdt krav på sekundet.
+    Opdateret med Breakout + Volumen filter.
+    Køb kræver nu at volumen er højere end gennemsnittet for at bekræfte styrke.
     """
-    print(f"Debug: get_advanced_trade_signals kaldt")
-        
+    print(f"Debug: get_advanced_trade_signals med volumen-filter kaldt for {ticker_name}")
+
     if df is None or len(df) < 20:
         return df
 
+    # Arbejd på en kopi for at undgå problemer
+    df = df.copy()
+
     close = df['Close'] if 'Close' in df else df.get('close')
-    
-    # Kør de tekniske beregninger (SMA'er og 20d_high)
+    volume = df['Volume'] if 'Volume' in df else df.get('volume')
+    high = df['High'] if 'High' in df else df.get('high')
+
+    # Kør de tekniske beregninger
     df = check_perfect_order(df)
 
-    # Beregn extension i procent fra sma20
-    df['extension_pc'] = ((close - df['sma20']) / df['sma20']) * 100
-    
-    # --- JUSTERET KØBSLOGIK ---
-    # Vi tillader nu køb hvis vi er i Perfect Order, over SMA200, 
-    # og enten har et breakout ELLER prisen ligger i den øverste del af 20-dages spændet.
-    
-    # Er prisen indenfor 2% af 20-dages high? (Tæt på breakout)
-    df['near_breakout'] = close >= (df['20d_high'] * 0.98) 
+    # Sikr at 'perfect_order' kolonnen findes (check_perfect_order laver 'perfect_trend')
+    if 'perfect_trend' in df:
+        df['perfect_order'] = df['perfect_trend']
+    else:
+        df['perfect_order'] = (df['sma5'] > df['sma10']) & (df['sma10'] > df['sma20'])
 
+    # --- VOLUMEN FILTER ---
+    # Vi beregner gennemsnitlig volumen over 20 dage
+    df['vol_avg_20'] = volume.rolling(window=20).mean()
+    df['high_volume'] = volume > df['vol_avg_20']
+
+    # Beregn 20-dages High (Breakout niveau)
+    df['20d_high'] = high.rolling(window=20).max()
+
+    # Beregn extension
+    df['extension_pc'] = ((close - df['sma20']) / df['sma20']) * 100
+    df['near_breakout'] = close >= (df['20d_high'] * 0.98)
+
+    # NYE REGLER (Lempede): Volumen og Breakout er nu "bonus" info, ikke hårde krav.
     df['buy_signal'] = (df['perfect_order']) & \
                        (df['long_term_ok']) & \
-                       (df['extension_pc'] < 8.0) & \
-                       (df['near_breakout']) # Køb når vi er tæt på eller over toppen
+                       (df['extension_pc'] < 8.0)
+                       # & (df['near_breakout']) & (df['high_volume']) # <--- Gjort valgfri
 
-    # NYE TREND REGLER FOR SALG
+    # Salgsregler (uændret)
     df['sell_signal'] = (df['sma5'] < df['sma10']) | (close < df['sma20'])
 
-    # Signal kolonne til GUI
     df['signal'] = 0
-    df.loc[df['buy_signal'] == True, 'signal'] = 1
-    df.loc[df['sell_signal'] == True, 'signal'] = -1
+    df.loc[df['buy_signal'].fillna(False), 'signal'] = 1
+    df.loc[df['sell_signal'].fillna(False), 'signal'] = -1
 
-    # Debug print for at se hvorfor den evt. ikke køber
-    last = df.iloc[-1]
-    print(f"Debug Status for {last.name}:")
-    print(f" - Perfect Order: {last['perfect_order']}")
-    print(f" - Over SMA200: {last['long_term_ok']}")
-    print(f" - Extension: {last['extension_pc']:.2f}% (Limit: 8%)")
-    print(f" - Tæt på Breakout: {last['near_breakout']}")
+    # Debug print
+    try:
+        last = df.iloc[-1]
+        print(f"--- STATUS {ticker_name} (Sidste data) ---")
+        print(f"Pris: {last[close.name]:.2f} | Vol: {last[volume.name]:.0f} (Snit: {last['vol_avg_20']:.0f})")
+        print(f"Perfect Order: {last['perfect_order']} | Long Term: {last['long_term_ok']}")
+        print(f"Extension: {last['extension_pc']:.2f}% (Limit: 8.0%)")
+        print(f"Breakout: {last['near_breakout']} (High: {last['20d_high']:.2f})")
+        print(f"High Volume: {last['high_volume']}")
+        if last['signal'] == 1:
+            extras = []
+            if last['near_breakout']: extras.append("Breakout")
+            if last['high_volume']: extras.append("Volumen")
+            print(f"🚀 KØB SIGNAL: Perfect Order OK. Ekstra styrke: {', '.join(extras) if extras else 'Ingen'}")
+        elif last['signal'] == -1:
+            print("🛑 SALG SIGNAL: Trend brudt.")
+        else:
+            print("⚪ AFVENT: Mangler volumen, breakout eller perfect order.")
+    except Exception as e:
+        print(f"Debug: Kunne ikke printe status: {e}")
 
     return df
 
@@ -384,8 +409,8 @@ def get_stock_data(ticker, timespan):
 
             # Beregn trade-signaler (køb/sælg/neutral) og overskriv 'signal' med -1/0/1
             try:
-                # Brug stop-loss-version for mere robuste salgssignaler
-                full_data = get_trade_signals_with_stop(full_data)
+                # Brug den nye avancerede strategi (Perfect Order + Extension + Volumen)
+                full_data = get_advanced_trade_signals(full_data, ticker_name=ticker_long)
             except Exception as e:
                 print(f"Debug: Fejl ved beregning af trade-signaler: {e}")
 

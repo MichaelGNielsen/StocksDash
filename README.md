@@ -322,3 +322,77 @@ Hvis vi skal indkode dette, kigger man typisk på **Donchian Channels** eller **
 * **Bekræftelse:** Prisen holder sig over det tidligere modstandsniveau (nu kaldet support).
 
 Vil du have mig til at tilføje en logik i din kode, der specifikt kigger efter, om en aktie har været faldende i f.eks. 30 dage og nu bryder op over sin SMA 50 som tegn på et trend-brud?
+
+### Opening Range Breakout
+Denne video fra **Ross Givens** handler om en strategi kaldet **"Opening Range Breakout" (ORB)**. Det er en metode, der passer rigtig godt ind i din interesse for breakouts og momentum, da den fokuserer på at fange eksplosive aktier, der "gapper" op på store nyheder.
+
+Her er en opsummering og feedback baseret på videoens indhold:
+
+### 📈 Hvad er strategien (ORB)?
+
+Strategien går ud på at handle aktier, der åbner med et stort spring opad (et gap) i forhold til gårsdagens lukkekurs [[00:46](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=46)]. I stedet for at købe blindt ved åbning, venter man på, at markedet "sætter sig".
+
+* **Tidsramme:** Han foretrækker **5-minutters grafer**. Man lader den første 5-minutters candle handle færdig [[01:39](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=99)].
+* **Købssignal:** Du tegner en linje ved det højeste punkt (High) af den første 5-minutters candle. Når kursen bryder over dette niveau, køber du [[03:31](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=211)].
+* **Stop Loss:** Sættes typisk ved det laveste punkt (Low) af den samme 5-minutters candle eller dagens hidtil laveste punkt [[03:45](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=225)].
+
+### 💡 Feedback og relevans for din kode
+
+Videoen understøtter mange af de principper, du allerede arbejder med, men giver nogle specifikke værktøjer til "daytrading" eller hurtige entries:
+
+1. **"Gap and Run" vs. "Gap and Crap":** Videoen forklarer vigtigheden i at skelne mellem aktier, der fortsætter op, og dem, hvor investorerne blot bruger stigningen til at sælge ud [[02:02](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=122)]. Din nuværende breakout-indikator (`20d_high`) hjælper med at bekræfte, at vi er i en "Gap and Run" situation.
+2. **Risikostyring:** Ved at bruge den første 5-minutters range kan man holde sit stop-loss meget stramt (f.eks. 2-4%), selvom aktien er steget 20% overnight [[03:50](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=230)]. Dette er en mere aggressiv version af din SMA 20 stop-loss regel.
+3. **Håndtering af "Extension":** Du nævnte tidligere, at du var bekymret for aktier, der var steget for meget. Ross Givens foreslår her, at hvis en aktie er løbet fra dig (over dit planlagte købspunkt), så er 5-minutters breakoutet den "gyldne" måde at komme ind på uden at tage for høj risiko [[07:40](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=460)].
+
+### 🛠 Hvordan kan du bruge dette?
+
+Hvis du vil integrere denne viden i din Python-kode, kunne du overveje at tilføje en funktion, der tjekker for **"Opening Gaps"**:
+
+* Hvis en aktie åbner > 2% over gårsdagens High **OG** den efterfølgende bryder sin første 5-minutters top, så er det et forstærket købssignal.
+
+**Samlet vurdering:** Videoen er meget lærerig for en trader, der leder efter momentum. Den forklarer præcis, hvordan man undgår at "jage" en aktie, der er steget for meget, ved at vente på en lille lokal bekræftelse (5-minutters breakout) [[08:50](http://www.youtube.com/watch?v=wi7Cy9QswfU&t=530)].
+
+Vil du have mig til at prøve at lave en simpel Python-funktion, der kan spotte disse "Gaps" i dine tickers?
+
+### volumen indikator + breakout
+Det har du helt ret i. **Volumen er brændstoffet**, der driver et breakout. Uden volumen er et prisudbrud blot et "forsøg", men med volumen er det en "bekræftelse".
+
+Her er en opsummering af reglen, som du kan kopiere direkte ind i din `.md` fil (f.eks. `trading_rules.md`). Den dækker alle de scenarier, du nævner:
+
+---
+
+## 📊 Volumen-reglen ved Breakouts
+
+### 1. Grundprincippet
+
+Et breakout uden volumen er som en bil uden benzin. For at et teknisk brud skal være validt, **skal** handelsaktiviteten stige markant. Det viser, at de institutionelle investorer (banker og fonde) deltager i bevægelsen.
+
+### 2. De tre Breakout-scenarier
+
+Uanset mønsteret skal volumen-bekræftelsen være til stede:
+
+* **Vandret kurs (Modstand/Resistance):** Når prisen bryder ud af en sidelæns kanal eller et fladt tag. Volumen skal "eksplodere" i selve gennembruddet.
+* **Nedadgående kurs (Trend-linje brud):** Når prisen bryder ud af en faldende trendkanal. Her er volumen altafgørende for at bevise, at "bjørnene" har givet op, og "tyrene" har taget over.
+* **Trend-ændring (Reversal):** Ved dannelsen af en ny bund (f.eks. en Double Bottom). Det andet "ben" i bunden bør ideelt set have højere volumen ved stigningen end det første.
+
+### 3. Den konkrete Købs-regel (Logik)
+
+For at filtrere "falske breakouts" fra, anvendes følgende betingelser:
+
+* **Pris-handling:** Prisen skal lukke over det definerede breakout-niveau (f.eks. 20-dages High eller en trendlinje).
+* **Volumen-tjek:** Volumen på breakout-dagen skal være **minimum 50% til 100% højere** end det gennemsnitlige volumen over de sidste 20 dage.
+* **Relativ styrke:** Hvis volumen er lavere end gennemsnittet, betragtes breakoutet som "mistænkeligt" (et svagt udbrud), og man bør afvente en re-test.
+
+### 4. Hvorfor volumen virker
+
+* **Institutionel bekræftelse:** Store spillere køber ikke småt. Deres ordrer efterlader spor i volumen-søjlerne.
+* **Udtømning:** Høj volumen ved et breakout viser, at alle dem, der ville sælge ved modstanden, er blevet "absorberet" af køberne.
+
+---
+
+### Hvordan vi implementerer det i koden:
+
+I din Python-kode svarer det til denne logik:
+`df['is_high_volume'] = df['Volume'] > (df['Volume'].rolling(20).mean() * 1.5)`
+
+**Vil du have mig til at hjælpe med at skrive koden, der specifikt beregner "Relative Volume" (RVOL), så du kan se præcis hvor mange gange højere volumen er i forhold til normalen?**

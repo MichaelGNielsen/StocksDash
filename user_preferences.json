@@ -2,14 +2,14 @@
     "trend_days": [
         50,
         200,
-        5,
+        20,
         10,
-        20
+        5
     ],
     "bollinger": false,
     "timespan": "6mo",
     "show_legends": true,
     "candlestick": true,
-    "last_ticker": "VWS.CO",
+    "last_ticker": "MU",
     "language": "en"
 }

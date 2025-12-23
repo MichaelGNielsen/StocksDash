@@ -284,47 +284,52 @@ def get_trade_signals_with_stop(df):
 def get_advanced_trade_signals(df):
     """
     Avancerede handels-signaler:
-    - Beregner standard SMA'er
-    - Måler hvor langt prisen er fra SMA20 i procent ('extension_pc')
-    - Perfect Order + filter for at undgå køb når aktien er for "strakt"
-    - Returnerer dataframe med kolonner: `sma5,sma10,sma20,sma200,extension_pc,perfect_order,buy_signal,sell_signal`
+    - Køb: Perfect Order + over SMA200 + rimelig afstand til SMA20.
+    - Breakout er nu en 'styrkemarkør' fremfor et hårdt krav på sekundet.
     """
     print(f"Debug: get_advanced_trade_signals kaldt")
-		
+        
     if df is None or len(df) < 20:
         return df
 
-    # Support både 'Close' og 'close'
-    if 'Close' in df:
-        close = df['Close']
-    elif 'close' in df:
-        close = df['close']
-    else:
-        return df
-
-    # Beregn eller genbrug SMA'er
-    for days in (5, 10, 20, 200):
-        col = f'sma{days}'
-        if col not in df:
-            try:
-                df[col] = ta.sma(close, length=days)
-            except Exception:
-                df[col] = close.rolling(window=days, min_periods=1).mean()
+    close = df['Close'] if 'Close' in df else df.get('close')
+    
+    # Kør de tekniske beregninger (SMA'er og 20d_high)
+    df = check_perfect_order(df)
 
     # Beregn extension i procent fra sma20
     df['extension_pc'] = ((close - df['sma20']) / df['sma20']) * 100
-    print(f"Debug: Aktuel extension_pc: {df['extension_pc'].iloc[-1]:.2f}%")
-	
-    # Perfect Order (sma5 > sma10 > sma20)
-    df['perfect_order'] = (df['sma5'] > df['sma10']) & (df['sma10'] > df['sma20'])
+    
+    # --- JUSTERET KØBSLOGIK ---
+    # Vi tillader nu køb hvis vi er i Perfect Order, over SMA200, 
+    # og enten har et breakout ELLER prisen ligger i den øverste del af 20-dages spændet.
+    
+    # Er prisen indenfor 2% af 20-dages high? (Tæt på breakout)
+    df['near_breakout'] = close >= (df['20d_high'] * 0.98) 
 
-    # Købslogik med sikkerhedsfilter: pris over sma200 og ikke mere end 5% væk fra sma20
-    df['buy_signal'] = (df['perfect_order']) & (close > df['sma200']) & (df['extension_pc'] < 5.0)
+    df['buy_signal'] = (df['perfect_order']) & \
+                       (df['long_term_ok']) & \
+                       (df['extension_pc'] < 8.0) & \
+                       (df['near_breakout']) # Køb når vi er tæt på eller over toppen
 
-    # Salgslogik
+    # NYE TREND REGLER FOR SALG
     df['sell_signal'] = (df['sma5'] < df['sma10']) | (close < df['sma20'])
 
+    # Signal kolonne til GUI
+    df['signal'] = 0
+    df.loc[df['buy_signal'] == True, 'signal'] = 1
+    df.loc[df['sell_signal'] == True, 'signal'] = -1
+
+    # Debug print for at se hvorfor den evt. ikke køber
+    last = df.iloc[-1]
+    print(f"Debug Status for {last.name}:")
+    print(f" - Perfect Order: {last['perfect_order']}")
+    print(f" - Over SMA200: {last['long_term_ok']}")
+    print(f" - Extension: {last['extension_pc']:.2f}% (Limit: 8%)")
+    print(f" - Tæt på Breakout: {last['near_breakout']}")
+
     return df
+
 
 
 def get_stock_data(ticker, timespan):

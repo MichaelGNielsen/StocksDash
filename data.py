@@ -567,3 +567,53 @@ def save_preferences(preferences):
             print(f"Debug: Forsøg {attempt + 1}/3: Uventet fejl ved gemning af præferencer: {e}")
             time.sleep(1)
     print(f"Debug: Kunne ikke gemme præferencer i {preferences_file} efter flere forsøg.")
+
+def scan_for_buy_signals():
+    """
+    Scanner alle tickers i tickers.json for aktive købssignaler.
+    Udskriver en pæn liste til terminalen.
+    """
+    print("\n" + "="*60)
+    print("STARTER MARKEDS-SCANNING FOR KØBSSIGNALER")
+    print("="*60 + "\n")
+
+    tickers_map = load_tickers()
+    results = []
+
+    for ticker in tickers_map:
+        try:
+            # Hent data (bruger 6mo for at være sikker på nok data til beregning)
+            # Vi ignorerer navnet her, da vi har det fra tickers_map
+            df, _ = get_stock_data(ticker, "6mo")
+
+            if df is None or df.empty or 'signal' not in df:
+                continue
+
+            # Tjek sidste række for signal
+            last = df.iloc[-1]
+
+            if last['signal'] == 1:
+                print(f">>> MATCH: {ticker} har et aktivt KØB signal!")
+                results.append({
+                    'ticker': ticker,
+                    'price': last['Close'],
+                    'extension': last.get('extension_pc', 0),
+                    'breakout': last.get('near_breakout', False),
+                    'volume': last.get('high_volume', False)
+                })
+        except Exception as e:
+            print(f"Fejl ved scanning af {ticker}: {e}")
+
+    print("\n" + "="*60)
+    print(f"SCANNING RESULTAT: {len(results)} AKTIER MED KØBSSIGNAL")
+    print("-" * 60)
+    print(f"{'TICKER':<10} {'PRIS':<10} {'EXT %':<10} {'BREAKOUT':<10} {'VOLUMEN':<10}")
+    print("-" * 60)
+
+    for res in results:
+        brk = "JA" if res['breakout'] else "Nej"
+        vol = "HØJ" if res['volume'] else "Normal"
+        print(f"{res['ticker']:<10} {res['price']:<10.2f} {res['extension']:<10.2f} {brk:<10} {vol:<10}")
+    print("="*60 + "\n")
+
+    return results

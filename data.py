@@ -133,6 +133,7 @@ def check_perfect_order(df):
         df['sma5'] = ta.sma(close, length=5)
         df['sma10'] = ta.sma(close, length=10)
         df['sma20'] = ta.sma(close, length=20)
+        df['sma50'] = ta.sma(close, length=50)
         # hvis ikke allerede sat, sæt sma200 (laves ovenfor)
         df['sma200'] = df.get('sma200', sma200)
     except Exception as e:
@@ -140,6 +141,7 @@ def check_perfect_order(df):
         df['sma5'] = close.rolling(window=5, min_periods=1).mean()
         df['sma10'] = close.rolling(window=10, min_periods=1).mean()
         df['sma20'] = close.rolling(window=20, min_periods=1).mean()
+        df['sma50'] = close.rolling(window=50, min_periods=1).mean()
         df['sma200'] = df.get('sma200', close.rolling(window=200, min_periods=1).mean())
 
     # Tjek rækkefølgen (The Stack)
@@ -320,17 +322,39 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
     df['extension_pc'] = ((close - df['sma20']) / df['sma20']) * 100
     df['near_breakout'] = close >= (df['20d_high'] * 0.98)
 
+    # Langsigtet filter
+    df['long_term_ok'] = close > df['sma200']
+    df['medium_term_ok'] = close > df['sma50']
+
+    # Købs-logik (Perfect Order + stigende + pris > sma200)
+    buy_condition = (
+        (df['sma5'] > df['sma10']) &
+        (df['sma10'] > df['sma20']) &
+        (df['sma5'] > df['sma5'].shift(1)) &
+        (close > df['sma200'])
+    )
+
+    # Forsigtig købs-logik (Perfect Order + stigende + pris > sma50)
+    cautious_buy_condition = (
+        (df['sma5'] > df['sma10']) &
+        (df['sma10'] > df['sma20']) &
+        (df['sma5'] > df['sma5'].shift(1)) &
+        (close > df['sma50'])
+    )
+
     # NYE REGLER (Lempede): Volumen og Breakout er nu "bonus" info, ikke hårde krav.
-    df['buy_signal'] = (df['perfect_order']) & \
-                       (df['long_term_ok']) & \
-                       (df['extension_pc'] < 8.0)
-                       # & (df['near_breakout']) & (df['high_volume']) # <--- Gjort valgfri
+    df['buy_signal'] = buy_condition & (df['extension_pc'] < 8.0)
+    df['cautious_buy_signal'] = cautious_buy_condition & (df['extension_pc'] < 8.0)
 
     # Salgsregler (uændret)
     df['sell_signal'] = (df['sma5'] < df['sma10']) | (close < df['sma20'])
 
     df['signal'] = 0
+    # Sæt cautious først (2)
+    df.loc[df['cautious_buy_signal'].fillna(False), 'signal'] = 2
+    # Overskriv med stærkt køb (1) hvis betingelserne er opfyldt
     df.loc[df['buy_signal'].fillna(False), 'signal'] = 1
+    # Overskriv med salg (-1)
     df.loc[df['sell_signal'].fillna(False), 'signal'] = -1
 
     # Debug print
@@ -347,6 +371,11 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
             if last['near_breakout']: extras.append("Breakout")
             if last['high_volume']: extras.append("Volumen")
             print(f"🚀 KØB SIGNAL: Perfect Order OK. Ekstra styrke: {', '.join(extras) if extras else 'Ingen'}")
+        elif last['signal'] == 2:
+            extras = []
+            if last['near_breakout']: extras.append("Breakout")
+            if last['high_volume']: extras.append("Volumen")
+            print(f"⚠️ FORSIGTIGT KØB: Pris over SMA50 (men under SMA200). Ekstra: {', '.join(extras) if extras else 'Ingen'}")
         elif last['signal'] == -1:
             print("🛑 SALG SIGNAL: Trend brudt.")
         else:
@@ -776,21 +805,33 @@ def scan_for_buy_signals():
                     'price': last['Close'],
                     'extension': last.get('extension_pc', 0),
                     'breakout': last.get('near_breakout', False),
-                    'volume': last.get('high_volume', False)
+                    'volume': last.get('high_volume', False),
+                    'type': 'STRONG'
+                })
+            elif last['signal'] == 2:
+                print(f">>> MATCH: {ticker} har et FORSIGTIGT KØB signal!")
+                results.append({
+                    'ticker': ticker,
+                    'price': last['Close'],
+                    'extension': last.get('extension_pc', 0),
+                    'breakout': last.get('near_breakout', False),
+                    'volume': last.get('high_volume', False),
+                    'type': 'CAUTIOUS'
                 })
         except Exception as e:
             print(f"Fejl ved scanning af {ticker}: {e}")
 
     print("\n" + "="*60)
     print(f"SCANNING RESULTAT: {len(results)} AKTIER MED KØBSSIGNAL")
-    print("-" * 60)
-    print(f"{'TICKER':<10} {'PRIS':<10} {'EXT %':<10} {'BREAKOUT':<10} {'VOLUMEN':<10}")
-    print("-" * 60)
+    print("-" * 70)
+    print(f"{'TICKER':<10} {'TYPE':<10} {'PRIS':<10} {'EXT %':<10} {'BREAKOUT':<10} {'VOLUMEN':<10}")
+    print("-" * 70)
 
     for res in results:
         brk = "JA" if res['breakout'] else "Nej"
         vol = "HØJ" if res['volume'] else "Normal"
-        print(f"{res['ticker']:<10} {res['price']:<10.2f} {res['extension']:<10.2f} {brk:<10} {vol:<10}")
+        type_str = res.get('type', 'UNKNOWN')
+        print(f"{res['ticker']:<10} {type_str:<10} {res['price']:<10.2f} {res['extension']:<10.2f} {brk:<10} {vol:<10}")
     print("="*60 + "\n")
 
     return results

@@ -25,8 +25,8 @@ docker compose up --build
 *   **Dashboard URL:** [http://localhost:8050](http://localhost:8050)
 *   **Live Reload:** Ændringer i koden træder i kraft med det samme, da din lokale mappe er forbundet til containeren.
 
-### 2. Kør Aktie-scanneren
-Du kan køre scanneren (`--scan`) inde i Docker-miljøet.
+### 2. Kør Aktie-scanneren (Breakout & Signaler)
+Du kan køre scanneren (`--scan`) inde i Docker-miljøet for at finde aktier med købssignaler og breakouts.
 
 **Hvis dashboardet allerede kører:**
 ```bash

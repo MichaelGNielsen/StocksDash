@@ -47,13 +47,17 @@ def send_notification(results):
     for res in results:
         symbol = res['ticker']
         price = res['price']
+        sig_type = res.get('type', 'STRONG')
         extras = []
         if res.get('breakout'): extras.append("Breakout")
         if res.get('volume'): extras.append("Høj Vol")
 
-        line = f"{symbol}: {price:.2f}"
+        icon = "🚀" if sig_type == 'STRONG' else "⚠️"
+        line = f"{icon} {symbol}: {price:.2f}"
+        if sig_type == 'CAUTIOUS':
+            line += " (Forsigtig)"
         if extras:
-            line += f" ({', '.join(extras)})"
+            line += f" [{', '.join(extras)}]"
         lines.append(line)
 
     message = "\n".join(lines)
@@ -82,6 +86,7 @@ if __name__ == '__main__':
             print("\nFORKLARING AF KOLONNER:")
             print("-" * 60)
             print(f"{'TICKER':<10} Aktiesymbol")
+            print(f"{'TYPE':<10} STRONG (Over SMA200) eller CAUTIOUS (Over SMA50)")
             print(f"{'PRIS':<10} Seneste lukkekurs")
             print(f"{'EXT %':<10} Hvor meget prisen er 'strakt' over SMA 20 i %")
             print(f"{'BREAKOUT':<10} Er prisen brudt igennem 20-dages toppen? (JA/Nej)")

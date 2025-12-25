@@ -45,7 +45,25 @@ Resultaterne fra scanneren kan findes her:
 
 ---
 
-## 🐍 Lokal Setup (Uden Docker)
+## 📱 Mobil Notifikationer
+
+Scanneren er sat op til at sende en besked til din telefon, når den finder aktier med købssignal.
+Dette bruger tjenesten **ntfy.sh**, som er gratis og ikke kræver konto.
+
+### Installation af App
+*   **Android:** Åbn Google Play og søg efter **ntfy** (eller klik her).
+*   **iPhone (iOS):** Åbn App Store og søg efter **ntfy** (eller klik her).
+
+### Sådan gør du:
+1.  Åbn appen og tryk på **+** (Abonner).
+2.  Indtast emnet: `stocks_dash_mgn_alerts`
+3.  Tryk **Subscribe**.
+
+Nu modtager du en besked, hver gang scanneren finder et match (f.eks. via det automatiske cron-job).
+
+---
+
+## � Lokal Setup (Uden Docker)
 
 Hvis du foretrækker at køre uden Docker, bruger projektet `uv` til at styre afhængigheder.
 

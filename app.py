@@ -59,7 +59,7 @@ def create_app():
                         style={'flex-grow': '1'},
                         title="Choose a stock ticker from the dropdown list"
                     ),
-                    html.Button('Slet', id='delete-ticker-button', n_clicks=0, style={'margin-left': '5px', 'background-color': '#ff4d4d', 'color': 'white', 'border': 'none', 'padding': '0 15px', 'cursor': 'pointer', 'border-radius': '3px', 'height': '36px'}),
+                    html.Button('Slet', id='delete-ticker-button', n_clicks=0, title="Slet den valgte aktie fra listen", style={'margin-left': '5px', 'background-color': '#ff4d4d', 'color': 'white', 'border': 'none', 'padding': '0 15px', 'cursor': 'pointer', 'border-radius': '3px', 'height': '36px'}),
                     html.Button('Opdater', id='refresh-ticker-button', n_clicks=0, title="Genindlæs listen af aktier", style={'margin-left': '5px', 'background-color': '#6c757d', 'color': 'white', 'border': 'none', 'padding': '0 15px', 'cursor': 'pointer', 'border-radius': '3px', 'height': '36px'}),
                 ], style={'display': 'flex', 'align-items': 'center'}),
                 dcc.ConfirmDialog(id='confirm-delete', message='Er du sikker på, at du vil slette denne aktie fra listen?'),

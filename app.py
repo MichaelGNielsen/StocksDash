@@ -48,16 +48,19 @@ def create_app():
         html.Div([
             html.Div([
                 html.Label("Select Ticker", style={'font-weight': 'bold'}),
-                html.Div(
-                    dcc.Dropdown(
-                        id='ticker-dropdown',
-                        options=[{'label': f'{ticker} - {long_name}', 'value': ticker} for ticker, long_name in tickers.items()],
-                        value=None,  # Initial værdi sættes via callback
-                        style={'width': '100%'}
+                html.Div([
+                    html.Div(
+                        dcc.Dropdown(
+                            id='ticker-dropdown',
+                            options=[{'label': f'{ticker} - {long_name}', 'value': ticker} for ticker, long_name in tickers.items()],
+                            value=None,  # Initial værdi sættes via callback
+                            style={'width': '100%'}
+                        ),
+                        style={'flex-grow': '1'},
+                        title="Choose a stock ticker from the dropdown list"
                     ),
-                    title="Choose a stock ticker from the dropdown list"
-                ),
-                html.Button('Slet', id='delete-ticker-button', n_clicks=0, style={'margin-top': '5px', 'background-color': '#ff4d4d', 'color': 'white', 'border': 'none', 'padding': '5px 10px', 'cursor': 'pointer', 'border-radius': '3px'}),
+                    html.Button('Slet', id='delete-ticker-button', n_clicks=0, style={'margin-left': '5px', 'background-color': '#ff4d4d', 'color': 'white', 'border': 'none', 'padding': '0 15px', 'cursor': 'pointer', 'border-radius': '3px', 'height': '36px'}),
+                ], style={'display': 'flex', 'align-items': 'center'}),
                 dcc.ConfirmDialog(id='confirm-delete', message='Er du sikker på, at du vil slette denne aktie fra listen?'),
             ], style={'width': '50%', 'display': 'inline-block', 'padding': '5px'}),
             html.Div([

@@ -1,6 +1,6 @@
 from dash import Dash, dcc, html, Input, Output, State
 import plotly.graph_objs as go
-from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name
+from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name, add_ticker_to_list
 from plotting import plot_trends, plot_bollinger_bands, plot_macd, plot_breakout
 #import dash
 import numpy as np
@@ -602,19 +602,17 @@ def create_app():
     def add_new_ticker(n_clicks, new_ticker, current_ticker):
         print(f"Debug: add_new_ticker kaldt med n_clicks: {n_clicks}, new_ticker: {new_ticker}, current_ticker: {current_ticker}")
         if (n_clicks > 0 or new_ticker) and new_ticker:
-            new_ticker = normalize_ticker(new_ticker)
-            tickers = load_tickers()
-            if new_ticker not in tickers:
-                print(f"Debug: Tilføjer ny ticker {new_ticker} til tickers.json")
-                company_name = get_company_name(new_ticker)
-                tickers[new_ticker] = company_name
-                save_tickers(tickers)
+            # Brug den nye validerings-funktion fra data.py
+            success, message = add_ticker_to_list(new_ticker)
+
+            if success:
+                print(f"Debug: Succes - {message}")
+                # Opdater præferencer så den nye ticker bliver valgt
                 preferences = load_preferences()
-                preferences["last_ticker"] = new_ticker
-                print(f"Debug: Opdaterer præferencer i add_new_ticker: {preferences}")
+                preferences["last_ticker"] = normalize_ticker(new_ticker)
                 save_preferences(preferences)
             else:
-                print(f"Debug: Ticker {new_ticker} findes allerede i tickers.json")
+                print(f"Debug: Fejl - {message}")
 
         tickers = load_tickers()
         options = [{'label': f'{ticker} - {long_name}', 'value': ticker} for ticker, long_name in tickers.items()]

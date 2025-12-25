@@ -471,6 +471,61 @@ def get_stock_data(ticker, timespan):
     print(f"Debug: Kunne ikke hente data for {ticker} efter flere forsøg.")
     return pd.DataFrame(), ticker
 
+def validate_ticker(ticker):
+    """
+    Validerer om en ticker findes og henter firmanavn.
+    Returnerer (bool, str): (Succes, Navn eller Fejlbesked)
+    """
+    ticker = normalize_ticker(ticker)
+    if not ticker:
+        return False, "Ticker er tom"
+
+    print(f"Debug: Validerer ticker {ticker}...")
+    try:
+        stock = yf.Ticker(ticker)
+
+        # Tjek historik først - det er den mest robuste måde at se om den handles
+        # Vi henter 5 dages data for at være sikre på at ramme handelsdage
+        hist = stock.history(period="5d")
+
+        if hist.empty:
+            return False, f"Ingen handelsdata fundet for '{ticker}'. Tjek symbolet (f.eks. .CO for Danmark)."
+
+        # Hvis vi har data, prøv at hente et pænt navn
+        try:
+            info = stock.info
+            name = info.get('longName') or info.get('shortName') or ticker
+        except Exception:
+            name = ticker
+
+        return True, name
+
+    except YFRateLimitError:
+        return False, "Rate limit nået hos Yahoo Finance. Prøv igen senere."
+    except Exception as e:
+        return False, f"Fejl ved opslag: {str(e)}"
+
+def add_ticker_to_list(ticker):
+    """
+    Validerer og tilføjer en ticker til tickers.json.
+    Bruges af UI til at sikre kvaliteten.
+    """
+    success, result = validate_ticker(ticker)
+
+    if not success:
+        return False, result
+
+    company_name = result
+    ticker_clean = normalize_ticker(ticker)
+
+    tickers = load_tickers()
+    if ticker_clean in tickers:
+        return False, f"Ticker {ticker_clean} findes allerede."
+
+    tickers[ticker_clean] = company_name
+    save_tickers(tickers)
+    return True, f"Tilføjet: {company_name} ({ticker_clean})"
+
 def load_tickers():
     print(f"Debug: load_tickers kaldt")
     if os.path.exists(ticker_file):

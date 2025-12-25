@@ -264,6 +264,7 @@ def create_app():
                 # find steder hvor signal ændrer sig
                 changes = sig[sig != sig.shift(1)]
                 buys = changes[changes == 1]
+                cautious_buys = changes[changes == 2]
                 sells = changes[changes == -1]
 
                 shapes = []
@@ -292,6 +293,31 @@ def create_app():
                             'x': d, 'xref': 'x', 'y': 0.98, 'yref': 'paper',
                             'text': '▲', 'showarrow': False,
                             'font': {'size': 14, 'color': 'green'}
+                        })
+
+                if not cautious_buys.empty:
+                    cautious_buy_trace = go.Scatter(
+                        x=cautious_buys.index,
+                        y=data.loc[cautious_buys.index, 'Close'],
+                        mode='markers',
+                        name='Cautious Buy',
+                        marker=dict(symbol='triangle-up', size=10, color='orange'),
+                        hovertemplate='Cautious Buy<br>Date: %{x}<br>Price: %{y:,.2f}<extra></extra>'
+                    )
+                    traces.append(cautious_buy_trace)
+
+                    # Add vertical lines and arrow annotation for cautious buys
+                    for d in cautious_buys.index:
+                        shapes.append({
+                            'type': 'line',
+                            'xref': 'x', 'x0': d, 'x1': d,
+                            'yref': 'paper', 'y0': 0, 'y1': 1,
+                            'line': {'color': 'orange', 'width': 1, 'dash': 'dot'}
+                        })
+                        extra_annotations.append({
+                            'x': d, 'xref': 'x', 'y': 0.95, 'yref': 'paper',
+                            'text': '▲', 'showarrow': False,
+                            'font': {'size': 12, 'color': 'orange'}
                         })
 
                 if not sells.empty:
@@ -337,6 +363,8 @@ def create_app():
                     prev_row = data.iloc[-2]
                     if int(last_row['signal']) == 1 and int(prev_row['signal']) != 1:
                         print(f"🚀 NYT KØB: Trenden er nu i Perfect Order for {ticker_long}!")
+                    elif int(last_row['signal']) == 2 and int(prev_row['signal']) != 2:
+                        print(f"⚠️ NYT FORSIGTIGT KØB: Pris over SMA50 for {ticker_long}.")
                     elif int(last_row['signal']) == -1 and int(prev_row['signal']) != -1:
                         print(f"⚠️ SÆLG/ADVARSEL: Trenden er brudt for {ticker_long}.")
                 except Exception:

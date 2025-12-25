@@ -526,6 +526,20 @@ def add_ticker_to_list(ticker):
     save_tickers(tickers)
     return True, f"Tilføjet: {company_name} ({ticker_clean})"
 
+def delete_ticker_from_list(ticker):
+    """
+    Sletter en ticker fra tickers.json.
+    """
+    ticker = normalize_ticker(ticker)
+    tickers = load_tickers()
+
+    if ticker in tickers:
+        del tickers[ticker]
+        save_tickers(tickers)
+        return True, f"Slettet: {ticker}"
+    else:
+        return False, f"Ticker {ticker} findes ikke."
+
 def load_tickers():
     print(f"Debug: load_tickers kaldt")
     if os.path.exists(ticker_file):

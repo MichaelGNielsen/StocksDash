@@ -1,6 +1,6 @@
-from dash import Dash, dcc, html, Input, Output, State
+from dash import Dash, dcc, html, Input, Output, State, ctx
 import plotly.graph_objs as go
-from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name, add_ticker_to_list
+from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name, add_ticker_to_list, delete_ticker_from_list
 from plotting import plot_trends, plot_bollinger_bands, plot_macd, plot_breakout
 #import dash
 import numpy as np
@@ -57,6 +57,8 @@ def create_app():
                     ),
                     title="Choose a stock ticker from the dropdown list"
                 ),
+                html.Button('Slet', id='delete-ticker-button', n_clicks=0, style={'margin-top': '5px', 'background-color': '#ff4d4d', 'color': 'white', 'border': 'none', 'padding': '5px 10px', 'cursor': 'pointer', 'border-radius': '3px'}),
+                dcc.ConfirmDialog(id='confirm-delete', message='Er du sikker på, at du vil slette denne aktie fra listen?'),
             ], style={'width': '50%', 'display': 'inline-block', 'padding': '5px'}),
             html.Div([
                 html.Label("Add New Ticker", style={'font-weight': 'bold'}),
@@ -595,29 +597,52 @@ def create_app():
         return volume_figure
 
     @app.callback(
-        Output('ticker-dropdown', 'options'),
-        [Input('add-ticker-button', 'n_clicks')],
-        [State('new-ticker-input', 'value'), State('ticker-dropdown', 'value')]
+        Output('confirm-delete', 'displayed'),
+        Input('delete-ticker-button', 'n_clicks'),
+        prevent_initial_call=True
     )
-    def add_new_ticker(n_clicks, new_ticker, current_ticker):
-        print(f"Debug: add_new_ticker kaldt med n_clicks: {n_clicks}, new_ticker: {new_ticker}, current_ticker: {current_ticker}")
-        if (n_clicks > 0 or new_ticker) and new_ticker:
-            # Brug den nye validerings-funktion fra data.py
-            success, message = add_ticker_to_list(new_ticker)
+    def display_confirm_delete(n_clicks):
+        if n_clicks:
+            return True
+        return False
 
+    @app.callback(
+        [Output('ticker-dropdown', 'options'), Output('ticker-dropdown', 'value', allow_duplicate=True)],
+        [Input('add-ticker-button', 'n_clicks'), Input('confirm-delete', 'submit_n_clicks')],
+        [State('new-ticker-input', 'value'), State('ticker-dropdown', 'value')],
+        prevent_initial_call=True
+    )
+    def manage_tickers(add_clicks, delete_clicks, new_ticker, current_ticker):
+        trigger = ctx.triggered_id
+        print(f"Debug: manage_tickers kaldt af {trigger}")
+
+        if trigger == 'add-ticker-button' and new_ticker:
+            success, message = add_ticker_to_list(new_ticker)
             if success:
                 print(f"Debug: Succes - {message}")
-                # Opdater præferencer så den nye ticker bliver valgt
+                current_ticker = normalize_ticker(new_ticker)
+                # Opdater præferencer
                 preferences = load_preferences()
-                preferences["last_ticker"] = normalize_ticker(new_ticker)
+                preferences["last_ticker"] = current_ticker
                 save_preferences(preferences)
             else:
-                print(f"Debug: Fejl - {message}")
+                print(f"Debug: Fejl ved tilføjelse - {message}")
+
+        elif trigger == 'confirm-delete' and current_ticker:
+            success, message = delete_ticker_from_list(current_ticker)
+            if success:
+                print(f"Debug: Slettet - {message}")
+                # Vælg en ny ticker (den første i listen) eller None hvis listen er tom
+                tickers = load_tickers()
+                current_ticker = next(iter(tickers)) if tickers else None
+
+                preferences = load_preferences()
+                preferences["last_ticker"] = current_ticker if current_ticker else "TSLA"
+                save_preferences(preferences)
 
         tickers = load_tickers()
         options = [{'label': f'{ticker} - {long_name}', 'value': ticker} for ticker, long_name in tickers.items()]
-        print(f"Debug: Opdaterer ticker-dropdown options: {[opt['value'] for opt in options]}")
-        return options
+        return options, current_ticker
 
     @app.callback(
         Output('ticker-dropdown', 'value', allow_duplicate=True),

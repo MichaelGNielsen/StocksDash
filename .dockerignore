@@ -1,0 +1,7 @@
+__pycache__
+*.pyc
+.git
+.env
+venv
+output.txt
+scan_results.txt

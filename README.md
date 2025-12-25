@@ -1,112 +1,58 @@
-# Projekt: stock_work
+# Projekt: StocksDash
 
 Dette repository indeholder et Python-program til arbejde med aktiedata.
-
-Projektet kører i **WSL2 (Ubuntu 24)** med **uv** som dependency manager.
+Projektet er optimeret til at køre med **Docker**, men kan også køre lokalt med **uv**.
 
 ---
 
-## Første gang: Initialisering af projektet med uv
+## 🐳 Start med Docker (Anbefalet)
 
-Kør disse kommandoer første gang du sætter projektet op:
-
-### 1. Installer uv (hvis ikke allerede installeret)
+### 1. Start Dashboardet
+For at bygge og starte web-dashboardet, kør følgende kommando i roden af projektet:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv --version
+docker compose up --build
 ```
 
-### 2. Opret virtual environment
+*   **Dashboard URL:** [http://localhost:8050](http://localhost:8050)
+*   **Live Reload:** Ændringer i koden træder i kraft med det samme, da din lokale mappe er forbundet til containeren.
 
+### 2. Kør Aktie-scanneren
+Du kan køre scanneren (`--scan`) inde i Docker-miljøet.
+
+**Hvis dashboardet allerede kører:**
 ```bash
-cd ~/path/to/stocks  # naviger til projektmappen
-uv venv
+docker compose exec stocksdash uv run main.py --scan
 ```
 
-Denne kommando opretter en `.venv` mappe med Python-miljøet.
+**Hvis dashboardet IKKE kører:**
+```bash
+docker compose run --rm stocksdash uv run main.py --scan
+```
 
-### 3. Installer dependencies
+### 📂 Output fra scan
+Resultaterne fra scanneren kan findes her:
+1.  **Terminalen:** Outputtet vises direkte i din terminal.
+2.  **Fil:** `output.txt` oprettes eller opdateres i projektmappen (samme sted som denne README).
+
+---
+
+## 🐍 Lokal Setup (Uden Docker)
+
+Hvis du foretrækker at køre uden Docker, bruger projektet `uv` til at styre afhængigheder.
 
 ```bash
+# 1. Installer afhængigheder
 uv sync
-```
 
-Dette installerer alle pakker defineret i `pyproject.toml` baseret på `uv.lock`.
+# 2. Kør dashboard
+uv run main.py --debug
 
-### 4. Aktivér virtual environment
-
-```bash
-source .venv/bin/activate
-```
-
-Efter aktivering vil kommandolinjen vise `(.venv)` i starten.
-
----
-
-## Efter PC-genstart
-
-Hver gang du genstarter din PC og åbner WSL2 igen, skal du blot:
-
-### 1. Naviger til projektmappen
-
-```bash
-cd ~/path/to/stocks
-```
-
-### 2. Aktivér virtual environment
-
-```bash
-source .venv/bin/activate
-```
-
-### 3. Kør programmet
-
-```bash
-# Metode 1: Med aktiveret virtual environment
-python main.py
-
-# Metode 2: Direkte med uv (uden at aktivere venv)
-uv run python main.py --debug
-```
-
-**Det er det!** Du behøver ikke køre `uv venv` eller `uv sync` igen – alt er allerede sat op.
-
----
-
-## Almindelige kommandoer
-
-```bash
-# Tilføj ny package
-uv add package_name
-
-# Fjern package
-uv remove package_name
-
-# Opdater alle packages
-uv sync --upgrade
-
-# Deaktivér virtual environment
-deactivate
+# 3. Kør scanner
+uv run main.py --scan
 ```
 
 ---
-
-## .gitignore
-
-For at undgå at uønskede filer bliver inkluderet i versionkontrol:
-
-```bash
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.log
-*.sqlite3
-.env
-.DS_Store
-```
 
 ## 📈 Trading Strategi: SMA Perfect Order (3-6 mdr. horisont)
 

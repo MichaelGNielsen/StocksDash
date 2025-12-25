@@ -326,6 +326,12 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
     df['long_term_ok'] = close > df['sma200']
     df['medium_term_ok'] = close > df['sma50']
 
+    # Beregn om aktien har ligget lavt (under SMA200) i længere tid (bund-formation)
+    # Vi kigger 60 dage (ca. 3 måneder) tilbage. Hvis den har været under SMA200 i >80% af tiden,
+    # betragter vi det som en "langvarig bund/downtrend" vi nu bryder ud af.
+    df['below_sma200'] = close < df['sma200']
+    df['long_term_low'] = df['below_sma200'].rolling(window=60, min_periods=20).mean() > 0.8
+
     # Købs-logik (Perfect Order + stigende + pris > sma200)
     buy_condition = (
         (df['sma5'] > df['sma10']) &
@@ -334,12 +340,13 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
         (close > df['sma200'])
     )
 
-    # Forsigtig købs-logik (Perfect Order + stigende + pris > sma50)
+    # Forsigtig købs-logik (Reversal): Perfect Order + stigende + pris > sma50 + kommer fra bund
     cautious_buy_condition = (
         (df['sma5'] > df['sma10']) &
         (df['sma10'] > df['sma20']) &
         (df['sma5'] > df['sma5'].shift(1)) &
-        (close > df['sma50'])
+        (close > df['sma50']) &
+        (df['long_term_low']) # Kræver at vi kommer fra en bund (har ligget lavt længe)
     )
 
     # NYE REGLER (Lempede): Volumen og Breakout er nu "bonus" info, ikke hårde krav.
@@ -364,6 +371,7 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
         print(f"Pris: {last[close.name]:.2f} | Vol: {last[volume.name]:.0f} (Snit: {last['vol_avg_20']:.0f})")
         print(f"Perfect Order: {last['perfect_order']} | Long Term: {last['long_term_ok']}")
         print(f"Extension: {last['extension_pc']:.2f}% (Limit: 8.0%)")
+        print(f"Long Term Low (Bund): {last.get('long_term_low', False)}")
         print(f"Breakout: {last['near_breakout']} (High: {last['20d_high']:.2f})")
         print(f"High Volume: {last['high_volume']}")
         if last['signal'] == 1:
@@ -375,7 +383,7 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
             extras = []
             if last['near_breakout']: extras.append("Breakout")
             if last['high_volume']: extras.append("Volumen")
-            print(f"⚠️ FORSIGTIGT KØB: Pris over SMA50 (men under SMA200). Ekstra: {', '.join(extras) if extras else 'Ingen'}")
+            print(f"⚠️ FORSIGTIGT KØB (Bundvending): Pris over SMA50 efter lang tid i bund. Ekstra: {', '.join(extras) if extras else 'Ingen'}")
         elif last['signal'] == -1:
             print("🛑 SALG SIGNAL: Trend brudt.")
         else:

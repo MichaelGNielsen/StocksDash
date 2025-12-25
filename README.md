@@ -79,6 +79,22 @@ For at køre scanneren automatisk på specifikke tidspunkter (f.eks. kl. 09:20 o
 
 ---
 
+## 🔄 Autostart ved genstart
+
+Hvis du vil have dashboardet til at starte automatisk, når din Raspberry Pi tænder (f.eks. efter strømsvigt), kan du tilføje dette til cron.
+
+1.  Åbn din crontab:
+    ```bash
+    crontab -e
+    ```
+
+2.  Indsæt følgende linje (den bruger `@reboot` til at køre ved opstart):
+    ```bash
+    @reboot cd /home/mgn/src/python/StocksDash && /usr/bin/docker compose up --build -d >> /home/mgn/src/python/StocksDash/startup.log 2>&1
+    ```
+
+---
+
 ## � Lokal Setup (Uden Docker)
 
 Hvis du foretrækker at køre uden Docker, bruger projektet `uv` til at styre afhængigheder.

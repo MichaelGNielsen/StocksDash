@@ -1,4 +1,5 @@
 import yfinance as yf
+import requests
 import pandas as pd
 import pandas_ta as ta
 import json
@@ -474,11 +475,11 @@ def get_stock_data(ticker, timespan):
 def validate_ticker(ticker):
     """
     Validerer om en ticker findes og henter firmanavn.
-    Returnerer (bool, str): (Succes, Navn eller Fejlbesked)
+    Returnerer (bool, str, str): (Succes, ValidTicker, Navn eller Fejlbesked)
     """
     ticker = normalize_ticker(ticker)
     if not ticker:
-        return False, "Ticker er tom"
+        return False, ticker, "Ticker er tom"
 
     print(f"Debug: Validerer ticker {ticker}...")
     try:
@@ -489,7 +490,52 @@ def validate_ticker(ticker):
         hist = stock.history(period="5d")
 
         if hist.empty:
-            return False, f"Ingen handelsdata fundet for '{ticker}'. Tjek symbolet (f.eks. .CO for Danmark)."
+            # Hvis historikken er tom, så led efter alternativer
+            print(f"Debug: Ingen data for {ticker}. Søger efter alternativ...")
+
+            candidates = []
+            # 1. Søg på det du skrev
+            candidates.extend(search_tickers(ticker))
+
+            # 2. Hvis der er punktum, søg også på roden (f.eks. "NOVO" fra "NOVO.CO")
+            if '.' in ticker:
+                root = ticker.split('.')[0]
+                if len(root) >= 2:
+                    print(f"Debug: Prøver udvidet søgning på '{root}'")
+                    candidates.extend(search_tickers(root))
+
+            # Filtrer dubletter
+            seen = set()
+            unique_candidates = []
+            for c in candidates:
+                if c['value'] not in seen:
+                    seen.add(c['value'])
+                    unique_candidates.append(c)
+
+            print(f"Debug: Kandidater til validering: {[c['value'] for c in unique_candidates]}")
+
+            # Test hver kandidat indtil vi finder en med data
+            for cand in unique_candidates:
+                alt_ticker = cand['value']
+
+                # Spring over hvis det er den samme tomme ticker, vi lige har tjekket
+                if normalize_ticker(alt_ticker) == ticker:
+                    continue
+
+                print(f"Debug: Tester alternativ: {alt_ticker}")
+                stock_alt = yf.Ticker(alt_ticker)
+                hist_alt = stock_alt.history(period="5d")
+
+                if not hist_alt.empty:
+                    try:
+                        info = stock_alt.info
+                        name = info.get('longName') or info.get('shortName') or alt_ticker
+                    except Exception:
+                        name = alt_ticker
+                    print(f"Debug: Fandt gyldig alternativ: {alt_ticker}")
+                    return True, normalize_ticker(alt_ticker), name
+
+            return False, ticker, f"Ingen handelsdata fundet for '{ticker}' eller alternativer."
 
         # Hvis vi har data, prøv at hente et pænt navn
         try:
@@ -498,33 +544,90 @@ def validate_ticker(ticker):
         except Exception:
             name = ticker
 
-        return True, name
+        return True, ticker, name
 
     except YFRateLimitError:
-        return False, "Rate limit nået hos Yahoo Finance. Prøv igen senere."
+        return False, ticker, "Rate limit nået hos Yahoo Finance. Prøv igen senere."
     except Exception as e:
-        return False, f"Fejl ved opslag: {str(e)}"
+        return False, ticker, f"Fejl ved opslag: {str(e)}"
 
 def add_ticker_to_list(ticker):
     """
     Validerer og tilføjer en ticker til tickers.json.
     Bruges af UI til at sikre kvaliteten.
+    Returnerer: (success, message, added_ticker_symbol, company_name)
     """
-    success, result = validate_ticker(ticker)
+    success, valid_ticker, result = validate_ticker(ticker)
 
     if not success:
-        return False, result
+        return False, result, None, None
 
     company_name = result
-    ticker_clean = normalize_ticker(ticker)
+    ticker_clean = valid_ticker
 
     tickers = load_tickers()
     if ticker_clean in tickers:
-        return False, f"Ticker {ticker_clean} findes allerede."
+        return False, f"Ticker {ticker_clean} findes allerede.", ticker_clean, tickers[ticker_clean]
 
     tickers[ticker_clean] = company_name
     save_tickers(tickers)
-    return True, f"Tilføjet: {company_name} ({ticker_clean})"
+    return True, f"Tilføjet: {company_name} ({ticker_clean})", ticker_clean, company_name
+
+def get_ticker_info(ticker):
+    """Henter detaljeret info om en ticker til preview."""
+    ticker = normalize_ticker(ticker)
+    if not ticker:
+        return None
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        return info
+    except Exception as e:
+        print(f"Debug: Fejl ved hentning af info for {ticker}: {e}")
+        return None
+
+def search_tickers(query):
+    """
+    Søger efter tickers via Yahoo Finance API.
+    Returnerer en liste af dicts til Dash Dropdown.
+    """
+    if not query or len(query) < 2:
+        return []
+
+    # Hjælpefunktion til at udføre selve opslaget
+    def do_search(q):
+        try:
+            url = "https://query2.finance.yahoo.com/v1/finance/search"
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            params = {'q': q, 'quotesCount': 10, 'newsCount': 0}
+
+            response = requests.get(url, headers=headers, params=params, timeout=5)
+            return response.json()
+        except Exception as e:
+            print(f"Debug: Fejl ved tickersøgning for '{q}': {e}")
+            return {}
+
+    # Første forsøg: Søg præcis på det brugeren skrev
+    data = do_search(query)
+
+    # Hvis ingen resultater, og query indeholder punktum (f.eks. "novo.co"), prøv uden suffix
+    if not data.get('quotes') and '.' in query:
+        clean_query = query.split('.')[0]
+        if len(clean_query) >= 2:
+            print(f"Debug: Ingen hits for '{query}', prøver fallback søgning på '{clean_query}'")
+            data = do_search(clean_query)
+
+    results = []
+    if 'quotes' in data:
+        for quote in data['quotes']:
+            symbol = quote.get('symbol')
+            longname = quote.get('longname') or quote.get('shortname', symbol)
+            exch = quote.get('exchange', '')
+
+            if symbol:
+                label = f"{symbol} - {longname} ({exch})"
+                results.append({'label': label, 'value': symbol})
+    return results
 
 def delete_ticker_from_list(ticker):
     """
@@ -533,12 +636,15 @@ def delete_ticker_from_list(ticker):
     ticker = normalize_ticker(ticker)
     tickers = load_tickers()
 
+    print(f"Debug: delete_ticker_from_list forsøger at slette '{ticker}'")
+
     if ticker in tickers:
         del tickers[ticker]
         save_tickers(tickers)
         return True, f"Slettet: {ticker}"
     else:
-        return False, f"Ticker {ticker} findes ikke."
+        print(f"Debug: Ticker '{ticker}' blev ikke fundet i listen. Tilgængelige: {list(tickers.keys())[:10]}...")
+        return False, f"Ticker {ticker} findes ikke i listen."
 
 def load_tickers():
     print(f"Debug: load_tickers kaldt")
@@ -561,7 +667,9 @@ def save_tickers(tickers):
         try:
             with open(ticker_file, 'w') as file:
                 tickers = {normalize_ticker(ticker): company for ticker, company in tickers.items()}
-                json.dump(tickers, file, indent=4)
+                json.dump(tickers, file, indent=4, sort_keys=True)
+                file.flush()
+                os.fsync(file.fileno()) # Tving skrivning til disk (vigtigt for Docker)
             print(f"Debug: Tickers gemt i {ticker_file}: {list(tickers.keys())}")
             return
         except IOError as e:

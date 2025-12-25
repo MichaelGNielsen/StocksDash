@@ -1,8 +1,8 @@
-from dash import Dash, dcc, html, Input, Output, State, ctx
+from dash import Dash, dcc, html, Input, Output, State, ctx, no_update
+import time
 import plotly.graph_objs as go
-from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name, add_ticker_to_list, delete_ticker_from_list
+from data import cached_get_stock_data, get_pe_ratio, get_beta, load_tickers, save_tickers, load_preferences, save_preferences, normalize_ticker, get_company_name, add_ticker_to_list, delete_ticker_from_list, search_tickers, get_ticker_info
 from plotting import plot_trends, plot_bollinger_bands, plot_macd, plot_breakout
-#import dash
 import numpy as np
 import pandas as pd
 
@@ -60,16 +60,24 @@ def create_app():
                         title="Choose a stock ticker from the dropdown list"
                     ),
                     html.Button('Slet', id='delete-ticker-button', n_clicks=0, style={'margin-left': '5px', 'background-color': '#ff4d4d', 'color': 'white', 'border': 'none', 'padding': '0 15px', 'cursor': 'pointer', 'border-radius': '3px', 'height': '36px'}),
+                    html.Button('Opdater', id='refresh-ticker-button', n_clicks=0, title="Genindlæs listen af aktier", style={'margin-left': '5px', 'background-color': '#6c757d', 'color': 'white', 'border': 'none', 'padding': '0 15px', 'cursor': 'pointer', 'border-radius': '3px', 'height': '36px'}),
                 ], style={'display': 'flex', 'align-items': 'center'}),
                 dcc.ConfirmDialog(id='confirm-delete', message='Er du sikker på, at du vil slette denne aktie fra listen?'),
             ], style={'width': '50%', 'display': 'inline-block', 'padding': '5px'}),
             html.Div([
                 html.Label("Add New Ticker", style={'font-weight': 'bold'}),
                 html.Div(
-                    dcc.Input(id='new-ticker-input', type='text', placeholder='Add new ticker', debounce=True),
-                    title="Enter a new stock ticker here"
+                    dcc.Dropdown(
+                        id='new-ticker-input',
+                        placeholder='Søg efter aktie (f.eks. novo)',
+                        searchable=True,
+                        options=[]
+                    ),
+                    title="Søg og vælg en aktie for at tilføje den"
                 ),
                 html.Button('Add Ticker', id='add-ticker-button', n_clicks=0, title="Click to add the entered ticker"),
+                html.Div(id='add-ticker-message', style={'margin-top': '5px', 'font-weight': 'bold', 'min-height': '20px'}),
+                html.Div(id='ticker-preview-output', style={'margin-top': '10px'})
             ], style={'padding': '10px', 'width': '100%'}),
             html.Div([
                 html.Label("Select Time Span", style={'font-weight': 'bold'}),
@@ -600,6 +608,45 @@ def create_app():
         return volume_figure
 
     @app.callback(
+        Output('new-ticker-input', 'options'),
+        Input('new-ticker-input', 'search_value'),
+        State('new-ticker-input', 'value')
+    )
+    def update_search_options(search_value, current_value):
+        if not search_value:
+            # FIX: Hvis der er valgt en værdi, så behold den i listen,
+            # så dropdown-boksen ikke "renser" sig selv.
+            if current_value:
+                return [{'label': current_value, 'value': current_value}]
+            return []
+        return search_tickers(search_value)
+
+    @app.callback(
+        Output('ticker-preview-output', 'children'),
+        Input('new-ticker-input', 'value')
+    )
+    def update_ticker_preview(ticker):
+        if not ticker:
+            return None
+
+        info = get_ticker_info(ticker)
+        if not info:
+            return html.Div("Kunne ikke hente info.", style={'color': 'red', 'font-size': '0.8em'})
+
+        name = info.get('longName', ticker)
+        price = info.get('currentPrice') or info.get('regularMarketPrice')
+        currency = info.get('currency', '')
+        summary = info.get('longBusinessSummary', '')
+        if summary and len(summary) > 150:
+            summary = summary[:150] + "..."
+
+        return html.Div([
+            html.Div(f"{name}", style={'font-weight': 'bold'}),
+            html.Div(f"Pris: {price} {currency}" if price else "Pris: N/A"),
+            html.Div(f"{summary}", style={'font-size': '0.8em', 'color': '#666', 'margin-top': '5px'})
+        ], style={'border': '1px solid #ddd', 'padding': '5px', 'border-radius': '5px', 'background-color': '#f9f9f9'})
+
+    @app.callback(
         Output('confirm-delete', 'displayed'),
         Input('delete-ticker-button', 'n_clicks'),
         prevent_initial_call=True
@@ -610,42 +657,110 @@ def create_app():
         return False
 
     @app.callback(
-        [Output('ticker-dropdown', 'options'), Output('ticker-dropdown', 'value', allow_duplicate=True)],
-        [Input('add-ticker-button', 'n_clicks'), Input('confirm-delete', 'submit_n_clicks')],
-        [State('new-ticker-input', 'value'), State('ticker-dropdown', 'value')],
+        [Output('ticker-dropdown', 'options'),
+         Output('ticker-dropdown', 'value', allow_duplicate=True),
+         Output('new-ticker-input', 'value'),
+         Output('add-ticker-message', 'children'),
+         Output('add-ticker-message', 'style')],
+        [Input('add-ticker-button', 'n_clicks'), Input('confirm-delete', 'submit_n_clicks'), Input('refresh-ticker-button', 'n_clicks'), Input('new-ticker-input', 'value')],
+        [State('new-ticker-input', 'search_value'), State('ticker-dropdown', 'value')],
         prevent_initial_call=True
     )
-    def manage_tickers(add_clicks, delete_clicks, new_ticker, current_ticker):
+    def manage_tickers(add_clicks, delete_clicks, refresh_clicks, new_ticker_value, new_ticker_search, current_ticker):
         trigger = ctx.triggered_id
         print(f"Debug: manage_tickers kaldt af {trigger}")
 
-        if trigger == 'add-ticker-button' and new_ticker:
-            success, message = add_ticker_to_list(new_ticker)
+        message_text = ""
+        message_style = {'margin-top': '5px', 'font-weight': 'bold'}
+
+        ticker_to_add = None
+        success = False
+        added_ticker = None
+        added_name = None
+
+        # Standard return values
+        ret_new_ticker_input = no_update
+
+        # Scenarie 1: Brugeren har valgt noget i listen (Auto-add)
+        if trigger == 'new-ticker-input':
+            if not new_ticker_value:
+                # Hvis feltet blev tømt (f.eks. efter en tilføjelse), gør vi absolut intet.
+                # Dette stopper den "uendelige løkke" og race conditions.
+                return no_update, no_update, no_update, no_update, no_update
+            ticker_to_add = new_ticker_value
+
+        # Scenarie 2: Brugeren trykkede på knappen (Manuel add)
+        elif trigger == 'add-ticker-button':
+            # Brug valgt værdi hvis den findes, ellers brug det brugeren har skrevet (søgetekst)
+            ticker_to_add = new_ticker_value if new_ticker_value else new_ticker_search
+
+        # Udfør tilføjelse hvis vi har en ticker
+        if ticker_to_add:
+            print(f"Debug: Forsøger at tilføje: '{ticker_to_add}'")
+            success, message, added_ticker, added_name = add_ticker_to_list(ticker_to_add)
             if success:
                 print(f"Debug: Succes - {message}")
-                current_ticker = normalize_ticker(new_ticker)
+                # Giv filsystemet et øjeblik til at synkronisere (vigtigt i Docker)
+                time.sleep(0.1)
+                current_ticker = added_ticker
                 # Opdater præferencer
                 preferences = load_preferences()
                 preferences["last_ticker"] = current_ticker
                 save_preferences(preferences)
+                message_text = message
+                message_style['color'] = 'green'
             else:
                 print(f"Debug: Fejl ved tilføjelse - {message}")
+                message_text = message
+                message_style['color'] = 'red'
+                # Hvis den findes, vælg den alligevel
+                if added_ticker:
+                    current_ticker = added_ticker
 
-        elif trigger == 'confirm-delete' and current_ticker:
-            success, message = delete_ticker_from_list(current_ticker)
-            if success:
-                print(f"Debug: Slettet - {message}")
-                # Vælg en ny ticker (den første i listen) eller None hvis listen er tom
-                tickers = load_tickers()
-                current_ticker = next(iter(tickers)) if tickers else None
+        # Scenarie 3: Sletning
+        elif trigger == 'confirm-delete':
+            print(f"Debug: Forsøger at slette current_ticker: '{current_ticker}'")
+            if current_ticker:
+                success, message = delete_ticker_from_list(current_ticker)
+                if success:
+                    print(f"Debug: Slettet - {message}")
+                    # Vælg en ny ticker (den første i listen) eller None hvis listen er tom
+                    tickers = load_tickers()
+                    current_ticker = next(iter(tickers)) if tickers else None
 
-                preferences = load_preferences()
-                preferences["last_ticker"] = current_ticker if current_ticker else "TSLA"
-                save_preferences(preferences)
+                    preferences = load_preferences()
+                    preferences["last_ticker"] = current_ticker if current_ticker else "TSLA"
+                    save_preferences(preferences)
+                    message_text = message
+                    message_style['color'] = '#ff4d4d'
+                else:
+                    print(f"Debug: Sletning fejlede - {message}")
+                    message_text = f"Fejl: {message}"
+                    message_style['color'] = 'red'
+            else:
+                message_text = "Ingen aktie valgt til sletning"
+                message_style['color'] = 'red'
+
+        elif trigger == 'refresh-ticker-button':
+            print("Debug: Manuel opdatering af ticker-liste.")
+            # Vi gør ingenting her, koden fortsætter bare ned og genindlæser tickers
 
         tickers = load_tickers()
+
+        # FIX: Ultimate safety check - Sørg for at den valgte aktie ALTID er i listen
+        if current_ticker and current_ticker not in tickers:
+             print(f"Debug: current_ticker '{current_ticker}' mangler i listen! Tvinger den ind.")
+             # Brug added_name hvis vi har det (fra tilføjelsen), ellers brug tickeren som navn
+             tickers[current_ticker] = added_name if added_name else current_ticker
+
         options = [{'label': f'{ticker} - {long_name}', 'value': ticker} for ticker, long_name in tickers.items()]
-        return options, current_ticker
+        options = sorted(options, key=lambda x: x['label']) # Sorter listen alfabetisk
+
+        # Debug: Tjek om den valgte ticker faktisk er i den liste vi sender tilbage
+        found = any(opt['value'] == current_ticker for opt in options)
+        print(f"Debug: Options count: {len(options)}. current_ticker '{current_ticker}' fundet i options: {found}")
+
+        return options, current_ticker, None, message_text, message_style
 
     @app.callback(
         Output('ticker-dropdown', 'value', allow_duplicate=True),

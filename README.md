@@ -7,6 +7,14 @@ Projektet er optimeret til at køre med **Docker**, men kan også køre lokalt m
 
 ## 🐳 Start med Docker (Anbefalet)
 
+### Installer Docker
+Kør dette officielle installations-script i terminalen på din RPi. Det installerer både Docker og Docker Compose plugin'et:
+
+````bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+````
+
 ### 1. Start Dashboardet
 For at bygge og starte web-dashboardet, kør følgende kommando i roden af projektet:
 

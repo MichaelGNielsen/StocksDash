@@ -337,16 +337,21 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
         (df['sma5'] > df['sma10']) &
         (df['sma10'] > df['sma20']) &
         (df['sma5'] > df['sma5'].shift(1)) &
-        (close > df['sma200'])
+        (close > df['sma200']) &
+        (close > df['sma5']) # Bekræftelse: Pris skal være over den hurtige trend
     )
 
-    # Forsigtig købs-logik (Reversal): Perfect Order + stigende + pris > sma50 + kommer fra bund
+    # Forsigtig købs-logik (Early Entry / Reversal):
+    # Vi "tager en chance" ved at fange den tidligt når:
+    # 1. Prisen bryder SMA 50.
+    # 2. Det helt korte momentum er positivt (SMA 5 > SMA 10).
+    # 3. Prisen bekræfter ved at ligge over SMA 5.
+    # Vi fjerner kravet om fuld Perfect Order (SMA 10 > 20) og "Long Term Low" for at fange signalet tidligere.
     cautious_buy_condition = (
         (df['sma5'] > df['sma10']) &
-        (df['sma10'] > df['sma20']) &
         (df['sma5'] > df['sma5'].shift(1)) &
         (close > df['sma50']) &
-        (df['long_term_low']) # Kræver at vi kommer fra en bund (har ligget lavt længe)
+        (close > df['sma5'])
     )
 
     # NYE REGLER (Lempede): Volumen og Breakout er nu "bonus" info, ikke hårde krav.
@@ -383,7 +388,7 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
             extras = []
             if last['near_breakout']: extras.append("Breakout")
             if last['high_volume']: extras.append("Volumen")
-            print(f"⚠️ FORSIGTIGT KØB (Bundvending): Pris over SMA50 efter lang tid i bund. Ekstra: {', '.join(extras) if extras else 'Ingen'}")
+            print(f"⚠️ FORSIGTIGT KØB (Early Entry): Pris over SMA50 med positivt momentum. Ekstra: {', '.join(extras) if extras else 'Ingen'}")
         elif last['signal'] == -1:
             print("🛑 SALG SIGNAL: Trend brudt.")
         else:

@@ -1,0 +1,14 @@
+services:
+  stocksdash:
+    build: .
+    container_name: stocksdash
+    ports:
+      - "8050:8050"
+    volumes:
+      # Mounter din nuværende mappe ind i containeren, så du kan redigere filer live
+      # og så tickers.json opdateringer gemmes på din computer
+      - .:/app
+      # Bevar containerens virtuelle miljø (så uv pakkerne ikke forsvinder)
+      - /app/.venv
+    environment:
+      - PYTHONUNBUFFERED=1

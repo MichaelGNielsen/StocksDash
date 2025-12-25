@@ -1,5 +1,6 @@
 import yfinance as yf
 import requests
+import numpy as np
 import pandas as pd
 import pandas_ta as ta
 import json
@@ -344,10 +345,8 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
     # Forsigtig købs-logik (Early Entry / Reversal):
     # Vi "tager en chance" ved at fange den tidligt når:
     # 1. Prisen bryder SMA 50.
-    # 2. Det helt korte momentum er positivt (SMA 5 stigende).
-    # 3. Prisen bekræfter ved at ligge over SMA 5.
+    # 2. Prisen bekræfter ved at ligge over SMA 5.
     cautious_buy_condition = (
-        (df['sma5'] > df['sma5'].shift(1)) &
         (close > df['sma50']) &
         (close > df['sma5'])
     )
@@ -356,22 +355,25 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
     df['buy_signal'] = buy_condition & (df['extension_pc'] < 8.0)
     df['cautious_buy_signal'] = cautious_buy_condition & (df['extension_pc'] < 8.0)
 
-    # Forsigtig salgs-logik (Advarsel): Pris under kortsigtede gennemsnit
+    # --- SELL CONDITIONS ---
+    # Forsigtig Salg (Advarsel): Pris dykker under de helt korte gennemsnit. Momentum svækkes.
     cautious_sell_condition = (close < df['sma5']) & (close < df['sma10'])
 
-    # Salgsregler (uændret)
-    df['sell_signal'] = (df['sma5'] < df['sma10']) | (close < df['sma20'])
+    # Stærkt Salg (Exit): Trenden er brudt. Prisen lukker under trend-basen (SMA20).
+    strong_sell_condition = (close < df['sma20'])
 
-    df['signal'] = 0
-    # Sæt cautious først (2)
-    df.loc[df['cautious_buy_signal'].fillna(False), 'signal'] = 2
-    # Overskriv med stærkt køb (1) hvis betingelserne er opfyldt
-    df.loc[df['buy_signal'].fillna(False), 'signal'] = 1
+    # --- FINAL SIGNAL ASSIGNMENT ---
+    # Anvend signaler med en klar hierarki for at undgå konflikter.
+    # 1=Stærk Køb, 2=Forsigtig Køb, -1=Stærk Sælg, -2=Forsigtig Sælg, 0=Hold
+    conditions = [
+        df['buy_signal'].fillna(False),      # Stærk Køb (højeste prioritet)
+        strong_sell_condition,                           # Stærk Sælg (næsthøjeste, exit er vigtigt)
+        df['cautious_buy_signal'].fillna(False), # Forsigtig Køb
+        cautious_sell_condition,                         # Forsigtig Sælg (laveste prioritet)
+    ]
+    choices = [1, -1, 2, -2]
 
-    # Sæt cautious sell (-2)
-    df.loc[df['cautious_sell_signal'].fillna(False), 'signal'] = -2
-    # Overskriv med salg (-1)
-    df.loc[df['sell_signal'].fillna(False), 'signal'] = -1
+    df['signal'] = np.select(conditions, choices, default=0)
 
     # Debug print
     try:
@@ -392,9 +394,9 @@ def get_advanced_trade_signals(df, ticker_name="UKENDT"):
             extras = []
             if last['near_breakout']: extras.append("Breakout")
             if last['high_volume']: extras.append("Volumen")
-            print(f"⚠️ FORSIGTIGT KØB (Early Entry): Pris over SMA50 med positivt momentum. Ekstra: {', '.join(extras) if extras else 'Ingen'}")
+            print(f"⚠️ FORSIGTIGT KØB (Early Entry): Pris over SMA50. Ekstra: {', '.join(extras) if extras else 'Ingen'}")
         elif last['signal'] == -1:
-            print("🛑 SALG SIGNAL: Trend brudt.")
+            print("🛑 STÆRKT SALG: Pris under SMA20. Trend brudt.")
         elif last['signal'] == -2:
             print("⚠️ FORSIGTIGT SALG: Pris under SMA 5/10. Momentum svækket.")
         else:

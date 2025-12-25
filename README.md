@@ -63,6 +63,22 @@ Nu modtager du en besked, hver gang scanneren finder et match (f.eks. via det au
 
 ---
 
+## ⏰ Automatisk Scanning (Cron)
+
+For at køre scanneren automatisk på specifikke tidspunkter (f.eks. kl. 09:20 og 16:20 for at fange markedsåbninger), kan du bruge Linux' indbyggede `cron`.
+
+1.  Åbn din crontab:
+    ```bash
+    crontab -e
+    ```
+
+2.  Indsæt følgende linje i bunden (tilpas stien `/home/mgn/src/python/StocksDash` til din egen):
+    ```bash
+    20 9,16 * * * cd /home/mgn/src/python/StocksDash && /usr/bin/docker compose run --rm stocksdash uv run main.py --scan >> /home/mgn/src/python/StocksDash/cron_scan.log 2>&1
+    ```
+
+---
+
 ## � Lokal Setup (Uden Docker)
 
 Hvis du foretrækker at køre uden Docker, bruger projektet `uv` til at styre afhængigheder.
